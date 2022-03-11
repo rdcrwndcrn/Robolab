@@ -2,7 +2,7 @@
 
 # Attention: Do not import the ev3dev.ev3 module in this file
 from enum import IntEnum, unique
-from typing import List, Tuple, Dict, Union
+from typing import Optional, List, Tuple, Dict, Union
 
 
 @unique
@@ -73,7 +73,7 @@ class Planet:
         # YOUR CODE FOLLOWS (remove pass, please!)
         pass
 
-    def shortest_path(self, start: Tuple[int, int], target: Tuple[int, int]) -> Union[None, List[Tuple[Tuple[int, int], Direction]]]:
+    def shortest_path(self, start: Tuple[int, int], target: Tuple[int, int]) -> Optional[List[Tuple[Tuple[int, int], Direction]]]:
         """
         Returns a shortest path between two nodes
 
@@ -82,7 +82,7 @@ class Planet:
             shortest_path((0,0), (1,2)) returns: None
         :param start: 2-Tuple
         :param target: 2-Tuple
-        :return: 2-Tuple[List, Direction]
+        :return: None or List[Tuple[Tuple[int, int], Direction]]
         """
 
         # YOUR CODE FOLLOWS (remove pass, please!)
