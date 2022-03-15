@@ -17,6 +17,7 @@ class Communication:
     thereby solve the task according to the specifications
     """
 
+    # DO NOT EDIT THE METHOD SIGNATURE
     def __init__(self, mqtt_client, logger):
         """
         Initializes communication module, connect to server, subscribe, etc.

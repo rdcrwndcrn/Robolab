@@ -26,7 +26,11 @@ def run():
                          clean_session=True,  # We want a clean session after disconnect or abort/crash
                          protocol=mqtt.MQTTv311  # Define MQTT protocol version
                          )
-    log_file = os.path.realpath(__file__) + '/../../logs/project.log'
+    # Setup logging directory and file
+    curr_dir = os.path.abspath(os.getcwd())
+    if not os.path.exists(curr_dir + '/../logs'):
+        os.makedirs(curr_dir + '/../logs')
+    log_file = curr_dir + '/../logs/project.log'
     logging.basicConfig(filename=log_file,  # Define log file
                         level=logging.DEBUG,  # Define default mode
                         format='%(asctime)s: %(message)s'  # Define default logging format

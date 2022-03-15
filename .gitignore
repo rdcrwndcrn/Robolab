@@ -48,7 +48,7 @@ Temporary Items
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
-.idea
+.idea/
 # User-specific stuff
 # .idea/**/workspace.xml
 # .idea/**/tasks.xml
@@ -89,7 +89,7 @@ Temporary Items
 cmake-build-*/
 
 # Mongo Explorer plugin
-.idea/**/mongoSettings.xml
+#.idea/**/mongoSettings.xml
 
 # File-based project format
 *.iws
@@ -104,7 +104,7 @@ out/
 atlassian-ide-plugin.xml
 
 # Cursive Clojure plugin
-.idea/replstate.xml
+#.idea/replstate.xml
 
 # Crashlytics plugin (for Android Studio and IntelliJ)
 com_crashlytics_export_strings.xml
@@ -113,7 +113,7 @@ crashlytics-build.properties
 fabric.properties
 
 # Editor-based Rest Client
-.idea/httpRequests
+#.idea/httpRequests
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
@@ -302,3 +302,5 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,python,windows,macos,linux
+
+logs/

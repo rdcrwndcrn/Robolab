@@ -6,6 +6,11 @@ import uuid
 
 from communication import Communication
 
+"""
+IMPORTANT: THOSE TESTS ARE NOT REQUIRED FOR THE EXAM AND USED ONLY FOR DEVELOPMENT
+ASK YOUR TUTOR FOR SPECIFIC DETAILS ABOUT THIS!
+"""
+
 
 class TestRoboLabCommunication(unittest.TestCase):
     @unittest.mock.patch('logging.Logger')
