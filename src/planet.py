@@ -30,10 +30,12 @@ class Planet:
     it according to the specifications
     """
 
+    # DO NOT EDIT THE METHOD SIGNATURE
     def __init__(self):
         """ Initializes the data structure """
         self.paths = {}
 
+    # DO NOT EDIT THE METHOD SIGNATURE
     def add_path(self, start: Tuple[Tuple[int, int], Direction], target: Tuple[Tuple[int, int], Direction],
                  weight: int):
         """
@@ -50,6 +52,7 @@ class Planet:
         # YOUR CODE FOLLOWS (remove pass, please!)
         pass
 
+    # DO NOT EDIT THE METHOD SIGNATURE
     def get_paths(self) -> Dict[Tuple[int, int], Dict[Direction, Tuple[Tuple[int, int], Direction, Weight]]]:
         """
         Returns all paths
@@ -73,6 +76,7 @@ class Planet:
         # YOUR CODE FOLLOWS (remove pass, please!)
         pass
 
+    # DO NOT EDIT THE METHOD SIGNATURE
     def shortest_path(self, start: Tuple[int, int], target: Tuple[int, int]) -> Optional[List[Tuple[Tuple[int, int], Direction]]]:
         """
         Returns a shortest path between two nodes
