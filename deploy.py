@@ -6,12 +6,12 @@ additional path prefix. Passes along any parameters without modification.
 For usage, optional arguments, syntax, etc. please refer to the RoboLab Docs
 which are accessible at https://robolab.inf.tu-dresden.de.
 
-This module: https://bitbucket.org/tudrobolab/robolab-template
-The submodule: https://bitbucket.org/tudrobolab/robolab-deploy
+This module: https://se-gitlab.inf.tu-dresden.de/robolab/robolab-template
+The submodule: https://se-gitlab.inf.tu-dresden.de/robolab/robolab-deploy
 
 Part of the RoboLab Project
 Systems Engineering Group, Faculty of Computer Science, TU Dresden
-Copyright (c) 2017-2019 by Lutz Thies, Samuel Knobloch
+Copyright (c) 2017-2013 by Lutz Thies, Samuel Knobloch
 Released under the MIT License
 """
 
