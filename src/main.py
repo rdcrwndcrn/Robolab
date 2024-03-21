@@ -6,7 +6,10 @@ import os
 import paho.mqtt.client as mqtt
 import uuid
 import signal
+import time
 
+import movement as mov
+from ev3dev.core import Motor
 from communication import Communication
 from odometry import Odometry
 from planet import Direction, Planet
@@ -41,6 +44,8 @@ def run():
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
     print("Hello World!")
+    mov.following_line()
+
 
 
 # DO NOT EDIT
