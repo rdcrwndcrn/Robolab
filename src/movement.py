@@ -17,8 +17,6 @@ def following_line():
     cs = ev3.ColorSensor()
     # using rgb-mode
     cs.mode = 'RGB-RAW'
-    # use the value in a variable
-    c = cs.raw
 
     # preparing motors
     # right motor is on output C
@@ -79,7 +77,7 @@ def following_line():
     # getting the rgb values for red
     red = colour_calibration()
     red_rgb = list(red)
-    print(red, c)
+    print(red)
 
     input("Press enter to read blue.")
     # getting the rgb values for blue
@@ -119,7 +117,7 @@ def following_line():
         else:
             # calculating turn_speed and if turning is necessary
             # converting to greyscale
-            light_grey = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
+            light_grey = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
 
             # calculating error
             err = light_grey - offset_grey
