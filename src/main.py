@@ -7,7 +7,6 @@ import paho.mqtt.client as mqtt
 import uuid
 import signal
 import time
-
 import movement as mov
 from ev3dev.core import Motor
 from communication import Communication
