@@ -44,9 +44,8 @@ def run():
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
     print("Hello World!")
-    ev3.Sound.beep()  # beep
-    ev3.Sound.tone([(200, 100, 100), (500, 200)])  # list of (frequency (Hz), duration (ms), delay to next (ms)) tuples
-    # mov.following_line()
+    # ev3.Sound.tone([(200, 100, 100), (500, 200)])  # list of (frequency (Hz), duration (ms), delay to next (ms)) tuples
+    mov.following_line()
 
 
 
