@@ -91,18 +91,25 @@ def following_line():
     calibrated_colors = ['red', 'blue', 'black', 'white']
 
     # automated colour assigning
-    for x in calibrated_colors:
+    # for x in calibrated_colors:
         # wait, so we can move Robo and know which colour is next
-        input(f"Press enter to read {x}.")
+    #    input(f"Press enter to read {x}.")
         # getting and saving rgb-values
-        colors[x] = colour_calibration()
-        print(colors[x])
+    #    colors[x] = colour_calibration()
+    #    print(colors[x])
+    colors['black'] = [103.88, 92.4, 29.68]
+    colors['white'] = [218.26, 330.04, 159.74]
+
     # for the calculation of turn
     # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-    white_grey = (0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]) / 2.55
-    black_grey = (0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]) / 2.55
+    white_grey = 0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]
+    black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
     # calculating offset
-    offset_grey = (white_grey + black_grey) / 2
+    print('white_grey', white_grey)
+    print('black_grey: ', black_grey)
+    offset_grey = ((white_grey + black_grey) / 2) - 20
+
+    print('offset_grey: ', offset_grey)
     # declaring proportional gain
     k_p = 2
     # integral gain
@@ -117,10 +124,10 @@ def following_line():
     # so we can move Robo again
     input("Press enter to start")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 300
+    t_p = 100
     # starting the motors
     motor_prep()
-    speed(t_p, t_p)
+    # speed(t_p, t_p)
     # for stopping the process for testing
     print("Press enter to stop")
     # x = 0
@@ -138,8 +145,8 @@ def following_line():
 
             # calculating turn_speed and if turning is necessary
             # converting to greyscale / 2.55 to norm it from 0 to 100
-            light_grey = (0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]) / 2.55
-            # print("actual reading: ", light_grey)
+            light_grey = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+            print("actual reading: ", light_grey)
             # calculating error
             err = light_grey - offset_grey
             # calc sum of errors
@@ -149,11 +156,11 @@ def following_line():
             # calc turn + k_i * integral + k_d * derivative
             turns = k_p * err
             # print(k_p*err, k_i*integral)
-            # print("turn: ", turn)
-            # driving with adjusted speed
-            speed_left = t_p + turns
-            speed_right = t_p - turns
-            speed(speed_left, speed_right)
-            # print("new speed left: ", speed_left)
-            # print("new speed right: ", speed_right)
+            # driving with adjusted speed, for a white line
+            new_speed_left = t_p - turns
+            new_speed_right = t_p + turns
+            speed(new_speed_left, new_speed_right)
+            print("new speed left: ", new_speed_left)
+            print("new speed right: ", new_speed_right)
             last_err = err
+            # time.sleep(5)
