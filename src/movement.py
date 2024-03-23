@@ -1,7 +1,7 @@
-import time
 import ev3dev.ev3 as ev3
 import sys
 import select
+
 
 # using speaker
 # sound = ev3.Sound()
@@ -11,7 +11,7 @@ import select
 
 def following_line():
     # initialising touch sensor
-    ts = ev3.TouchSensor()
+    # ts = ev3.TouchSensor()
 
     # initialising colour sensor
     cs = ev3.ColorSensor()
@@ -50,7 +50,6 @@ def following_line():
         m_left.command = "run-direct"
         m_right.command = "run-direct"
 
-    # color calibration
     def colour_calibration():
         # average rgb
         avg_r = 0
@@ -59,9 +58,7 @@ def following_line():
 
         # measuring 100 times
         for x in range(100):
-            r = cs.value(0)
-            g = cs.value(1)
-            b = cs.value(2)
+            r, g, b = cs.raw
             avg_r += r
             avg_g += g
             avg_b += b
@@ -69,64 +66,60 @@ def following_line():
         avg_r /= 100
         avg_g /= 100
         avg_b /= 100
-        return avg_r, avg_g, avg_b
+        return [avg_r, avg_g, avg_b]
 
-    # little wait function, so I can move the robot onto the colour
+    # for saving the calibrated colours
+    colors = {}
+    calibrated_colors = ['red', 'blue', 'black', 'white']
 
-    input("Press enter to read red.")
-    # getting the rgb values for red
-    red = colour_calibration()
-    red_rgb = list(red)
-    print(red)
-
-    input("Press enter to read blue.")
-    # getting the rgb values for blue
-    blue = colour_calibration()
-    blue_rgb = list(blue)
-    print(blue)
-
-    input("Press enter to read black.")
-    # getting the rgb values for blue
-    black = colour_calibration()
-    black_rgb = list(black)
-    print(black)
-
-    input("Press enter to read white")
-    # getting the rgb values for white
-    white = colour_calibration()
-    white_rgb = list(white)
-    print(white)
+    for x in calibrated_colors:
+        # wait so we can move Robo and know which colour is next
+        input(f"Press enter to read {x}.")
+        # getting and saving rgb-values
+        colors[x] = colour_calibration()
 
     # for the calculation of turn
     # declaring proportionality constant - does still need adjusting
-    k_p = 0.1
-    # calculating offset
-    offset = [(white_rgb[0] - black_rgb[0]) / 2, (white_rgb[1] - black_rgb[1]) / 2,
-              (white_rgb[2] - black_rgb[2]) / 2]
-    offset_grey = 0.3 * offset[0] + 0.59 * offset[1] + 0.11 * offset[2]
-    # initialising t_p, well use it with the meaning of x% of the possible wheel speed, here its 50%
-    t_p = 50
+    k_p = 0.05
+    # calculating offset - numpy array?
+    offset = [(colors['white'][0] - colors['black'][0]) / 2,
+              (colors['white'][1] - colors['black'][1]) / 2,
+              (colors['white'][2] - colors['black'][2]) / 2]
 
-    print("Press enter to stop Robo")
+    # converting to greyscale / 2.55 to norm it from 0 to 100
+    offset_grey = (0.3 * offset[0] + 0.59 * offset[1] + 0.11 * offset[2]) / 2.55
+    # initialising t_p, well use it with the meaning of x% of the possible wheel speed, here its 50%
+    t_p = 30
+    # print("offset: ", offset_grey)
+
+    # so we can move Robo again
+    input("Press enter to start")
+    motor_prep()
+
+    # for stopping the process for testing
+    print("Press enter to stop")
     while True:
-        # apparently this stops the loop if I press enter
+        # this stops the loop if I press enter, IDK how it works
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
             line = input()
             if line == '':
                 break
         else:
             # calculating turn_speed and if turning is necessary
-            # converting to greyscale
-            light_grey = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+            # converting to greyscale / 2.55 to norm it from 0 to 100
+            light_grey = (0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]) / 2.55
+            print("actual reading: ", light_grey)
 
-            # calculating error
+            # calculating error, should be between 0 and 100
             err = light_grey - offset_grey
-            # calculating turn of the wheels - norming has to be done
-            turn = k_p * err
+            print("error: ", err)
 
+            # calculating turn of the wheels
+            turn = k_p * err
+            # print("turn: ", turn)
             # driving with adjusted speed
             speed_left = t_p + turn
             speed_right = t_p - turn
-            speed(speed_left, speed_right)
-
-
+            print("new speed left: ", speed_left)
+            print("new speed right: ", speed_right)
+            # speed(speed_left, speed_right)
