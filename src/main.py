@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import sys
+import select
 import ev3dev.ev3 as ev3
 import logging
 import os
@@ -42,11 +43,8 @@ def run():
     # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
-    print("Hello World!")
-    # ev3.Sound.tone([(200, 100, 100), (500, 200)])  # list of (frequency (Hz), duration (ms), delay to next (ms)) tuples
+    # print("Hello World!")
     mov.following_line()
-
-
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):
