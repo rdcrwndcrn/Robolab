@@ -91,28 +91,28 @@ def following_line():
     calibrated_colors = ['red', 'blue', 'black', 'white']
 
     # automated colour assigning
-    # for x in calibrated_colors:
-    # wait, so we can move Robo and know which colour is next
-    #    input(f"Press enter to read {x}.")
-    # getting and saving rgb-values
-    #    colors[x] = colour_calibration()
-    #    print(colors[x])
-
-    colors['white'] = [29.33, 51.74, 16.13]
-    colors['black'] = [110.05, 102.14, 32.0]
+    for x in calibrated_colors:
+        # wait, so we can move Robo and know which colour is next
+        input(f"Press enter to read {x}.")
+        # getting and saving rgb-values
+        colors[x] = colour_calibration()
+        print(colors[x])
     # for the calculation of turn
     # converting white and black to greyscale / 2.55 to norm it from 0 to 100
     white_grey = (0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]) / 2.55
     black_grey = (0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]) / 2.55
     # calculating offset
-    # offset_grey = (white_grey + black_grey) / 2
-    offset_grey = 27
+    offset_grey = (white_grey + black_grey) / 2
     # declaring proportional gain
     k_p = 2
     # integral gain
     k_i = 1 * 10 ** - 1
+    # derivative gain
+    k_d = 100
     # for summing up the error, hence integral
     integral = 0
+    # for calc the derivative
+    last_err = 0
     # print("offset: ", offset_grey)
     # so we can move Robo again
     input("Press enter to start")
@@ -140,16 +140,20 @@ def following_line():
             # converting to greyscale / 2.55 to norm it from 0 to 100
             light_grey = (0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]) / 2.55
             # print("actual reading: ", light_grey)
-
-            # calculating error, should be b
-
+            # calculating error
+            err = light_grey - offset_grey
+            # calc sum of errors
+            integral = integral + err
+            # calc derivative
+            derivative = err - last_err
+            # calc turn + k_i * integral + k_d * derivative
+            turns = k_p * err
             # print(k_p*err, k_i*integral)
-            # x += 1
             # print("turn: ", turn)
             # driving with adjusted speed
-            # speed_left = t_p + turns
-            # speed_right = t_p - turns
-            # speed(speed_left, speed_right)
+            speed_left = t_p + turns
+            speed_right = t_p - turns
+            speed(speed_left, speed_right)
             # print("new speed left: ", speed_left)
             # print("new speed right: ", speed_right)
-            # time.sleep(4)
+            last_err = err
