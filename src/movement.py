@@ -1,18 +1,16 @@
 import ev3dev.ev3 as ev3
 import sys
 import select
+import time
 
 
+# initialising touch sensor
+# ts = ev3.TouchSensor()
 # using speaker
 # sound = ev3.Sound()
 # sound.speak('Hello Robolab!')
 
-# m_right.stop()
-
 def following_line():
-    # initialising touch sensor
-    # ts = ev3.TouchSensor()
-
     # initialising colour sensor
     cs = ev3.ColorSensor()
     # using rgb-mode
@@ -45,8 +43,13 @@ def following_line():
     # changing speed on both wheels
     def speed(v_l, v_r):
         # motor_prep()
+        # testing speed boundary's and adjusting speed if necessary
+        v_l = max(min(v_l, 100), -100)
+        v_r = max(min(v_r, 100), -100)
+        # assigning speed
         m_left.duty_cycle_sp = v_l
         m_right.duty_cycle_sp = v_r
+        # executing speed
         m_left.command = "run-direct"
         m_right.command = "run-direct"
 
@@ -72,22 +75,19 @@ def following_line():
     colors = {}
     calibrated_colors = ['red', 'blue', 'black', 'white']
 
-    for x in calibrated_colors:
-        # wait so we can move Robo and know which colour is next
-        input(f"Press enter to read {x}.")
-        # getting and saving rgb-values
-        colors[x] = colour_calibration()
+    colors['red'] = [182.73, 64.03, 22.98]
+    colors['blue'] = [91.13, 222.81, 108.92]
+    colors['black'] = [29.33, 51.74, 16.13]
+    colors['white'] = [110.05, 102.14, 32.0]
 
     # for the calculation of turn
     # declaring proportionality constant - does still need adjusting
-    k_p = 0.05
-    # calculating offset - numpy array?
-    offset = [(colors['white'][0] - colors['black'][0]) / 2,
-              (colors['white'][1] - colors['black'][1]) / 2,
-              (colors['white'][2] - colors['black'][2]) / 2]
-
-    # converting to greyscale / 2.55 to norm it from 0 to 100
-    offset_grey = (0.3 * offset[0] + 0.59 * offset[1] + 0.11 * offset[2]) / 2.55
+    k_p = 1
+    # converting white and black to greyscale / 2.55 to norm it from 0 to 100
+    white_grey = (0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]) / 2.55
+    black_grey = (0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]) / 2.55
+    # calculating offset -6 for sensor deviation minimization in Döbeln
+    offset_grey = white_grey - black_grey - 6
     # initialising t_p, well use it with the meaning of x% of the possible wheel speed, here its 50%
     t_p = 30
     # print("offset: ", offset_grey)
@@ -98,6 +98,7 @@ def following_line():
 
     # for stopping the process for testing
     print("Press enter to stop")
+
     while True:
         # this stops the loop if I press enter, IDK how it works
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
@@ -120,6 +121,8 @@ def following_line():
             # driving with adjusted speed
             speed_left = t_p + turn
             speed_right = t_p - turn
+
             print("new speed left: ", speed_left)
             print("new speed right: ", speed_right)
             # speed(speed_left, speed_right)
+            time.sleep(4)
