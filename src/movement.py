@@ -63,9 +63,12 @@ def following_line():
         m_right.command = "run-to-rel-pos"
         # print(m_left.state.__repr__())
         # giving them time to execute
-        print()
         while 'running' in m_left.state or 'running' in m_right.state:
             time.sleep(0.1)
+            # should continue if he found the line again
+            found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+            if found_line > offset_grey:
+                break
         # tried error minimization with gyro, but too imprecise
 
     def colour_calibration():
@@ -76,10 +79,10 @@ def following_line():
 
         # measuring 100 times
         for i in range(100):
-            r, g, b = cs.raw
-            avg_r += r
-            avg_g += g
-            avg_b += b
+            red, green, blue = cs.raw
+            avg_r += red
+            avg_g += green
+            avg_b += blue
 
         avg_r /= 100
         avg_g /= 100
@@ -92,26 +95,37 @@ def following_line():
 
     # automated colour assigning
     # for x in calibrated_colors:
-        # wait, so we can move Robo and know which colour is next
+    # wait, so we can move Robo and know which colour is next
     #    input(f"Press enter to read {x}.")
-        # getting and saving rgb-values
+    # getting and saving rgb-values
     #    colors[x] = colour_calibration()
     #    print(colors[x])
-    colors['black'] = [103.88, 92.4, 29.68]
-    colors['white'] = [218.26, 330.04, 159.74]
+
+    # Döbeln
+    # brown background
+    # colors['black'] = [103.88, 92.4, 29.68]
+    # white line
+    # colors['white'] = [218.26, 330.04, 159.74]
+    # red squares
+    # colors['red'] = [202.52, 190.29, 34.48]
 
     # for the calculation of turn
     # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-    white_grey = 0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]
-    black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
+    # white_grey = 0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]
+    # black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
+    white_grey = 230
+    black_grey = 85
+
     # calculating offset
     print('white_grey', white_grey)
     print('black_grey: ', black_grey)
     offset_grey = ((white_grey + black_grey) / 2) - 20
 
     print('offset_grey: ', offset_grey)
+
     # declaring proportional gain
-    k_p = 2
+    k_p = 2.5
+
     # integral gain
     k_i = 1 * 10 ** - 1
     # derivative gain
@@ -124,7 +138,7 @@ def following_line():
     # so we can move Robo again
     input("Press enter to start")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 100
+    t_p = 200
     # starting the motors
     motor_prep()
     # speed(t_p, t_p)
@@ -141,12 +155,19 @@ def following_line():
             # turn if bottle is less than 150 mm before Robo,
             # so we don't always measure, it may be more energy efficient??
             if us.value() < 150:
-                turn(180)
-
+                turn(360)
+            # detects if the cs sees red
+            r, g, b = cs.raw[0], cs.raw[1], cs.raw[2]
+            if r > g * 2 and r > b * 2:
+                # break loop to stop if it does
+                break
+            # same for blue
+            if b > r * 2 and b > g * 2:
+                break
             # calculating turn_speed and if turning is necessary
             # converting to greyscale / 2.55 to norm it from 0 to 100
-            light_grey = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
-            print("actual reading: ", light_grey)
+            light_grey = 0.3 * r + 0.59 * g + 0.11 * b
+            # print("actual reading: ", light_grey)
             # calculating error
             err = light_grey - offset_grey
             # calc sum of errors
@@ -157,10 +178,10 @@ def following_line():
             turns = k_p * err
             # print(k_p*err, k_i*integral)
             # driving with adjusted speed, for a white line
-            new_speed_left = t_p - turns
-            new_speed_right = t_p + turns
+            new_speed_left = t_p + turns
+            new_speed_right = t_p - turns
             speed(new_speed_left, new_speed_right)
-            print("new speed left: ", new_speed_left)
-            print("new speed right: ", new_speed_right)
+            # print("new speed left: ", new_speed_left)
+            # print("new speed right: ", new_speed_right)
             last_err = err
-            # time.sleep(5)
+            # time.sleep(3)
