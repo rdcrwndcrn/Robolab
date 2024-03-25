@@ -91,60 +91,56 @@ def following_line():
 
     # for saving the calibrated colours
     colors = {}
-    calibrated_colors = ['red', 'blue', 'black', 'white']
+    calibrated_colors = ['black', 'white']
 
     # automated colour assigning
-    # for x in calibrated_colors:
+    for x in calibrated_colors:
     # wait, so we can move Robo and know which colour is next
-    #    input(f"Press enter to read {x}.")
+        input(f"Press enter to read {x}.")
     # getting and saving rgb-values
-    #    colors[x] = colour_calibration()
-    #    print(colors[x])
+        colors[x] = colour_calibration()
+        print(colors[x])
 
-    # Döbeln
-    # brown background
-    # colors['black'] = [103.88, 92.4, 29.68]
-    # white line
-    # colors['white'] = [218.26, 330.04, 159.74]
-    # red squares
-    # colors['red'] = [202.52, 190.29, 34.48]
-
-    # for the calculation of turn
+    # colour calc to calc the error and use that for PID calc
     # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-    # white_grey = 0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]
-    # black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
-    white_grey = 230
-    black_grey = 85
+    white_grey = 0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]
+    black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
+
+    # Döbeln:
+    # white_grey = 230
+    # black_grey = 85
+
+    # APB:
+    # white_grey = 310
+    # black_grey = 180
 
     # calculating offset
-    print('white_grey', white_grey)
-    print('black_grey: ', black_grey)
-    offset_grey = ((white_grey + black_grey) / 2) - 20
+    print(f'black_grey: {black_grey},  white_grey: {white_grey}')
+    # döbeln: - 20
+    offset_grey = ((white_grey + black_grey) / 2) + 30
 
     print('offset_grey: ', offset_grey)
 
     # declaring proportional gain
-    k_p = 2.5
-
+    k_p = 0.5
     # integral gain
-    k_i = 1 * 10 ** - 1
+    k_i = 1 * 10 ** - 5
     # derivative gain
     k_d = 100
     # for summing up the error, hence integral
     integral = 0
     # for calc the derivative
     last_err = 0
-    # print("offset: ", offset_grey)
     # so we can move Robo again
     input("Press enter to start")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 200
+    t_p = 300
     # starting the motors
     motor_prep()
     # speed(t_p, t_p)
     # for stopping the process for testing
     print("Press enter to stop")
-    # x = 0
+    x = 0
     while True:
         # this stops the loop if I press enter, IDK how it works
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
@@ -167,7 +163,7 @@ def following_line():
             # calculating turn_speed and if turning is necessary
             # converting to greyscale / 2.55 to norm it from 0 to 100
             light_grey = 0.3 * r + 0.59 * g + 0.11 * b
-            # print("actual reading: ", light_grey)
+            print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
             # calculating error
             err = light_grey - offset_grey
             # calc sum of errors
@@ -175,13 +171,14 @@ def following_line():
             # calc derivative
             derivative = err - last_err
             # calc turn + k_i * integral + k_d * derivative
-            turns = k_p * err
-            # print(k_p*err, k_i*integral)
-            # driving with adjusted speed, for a white line
+            turns = k_p * err + k_i * integral
+            # print(f'P: {k_p*err} and D:{k_i*integral}')
+            # driving with adjusted speed
+            # a white line
             new_speed_left = t_p + turns
             new_speed_right = t_p - turns
             speed(new_speed_left, new_speed_right)
-            # print("new speed left: ", new_speed_left)
-            # print("new speed right: ", new_speed_right)
+            print(f'new speed left: {new_speed_left}, new speed right: {new_speed_right}')
+            print()
             last_err = err
-            # time.sleep(3)
+            # time.sleep(5)
