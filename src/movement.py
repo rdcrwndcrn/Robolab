@@ -1,15 +1,7 @@
-import ev3dev.ev3 as ev3
+import time
+from ev3dev import ev3
 import sys
 import select
-import time
-
-
-# initialising touch sensor
-# ts = ev3.TouchSensor()
-# using speaker
-# sound = ev3.Sound()
-# sound.speak('Hello Robolab!')
-# ev3.Sound.tone([(200, 100, 100), (500, 200)])  # list of (frequency (Hz), duration (ms), delay to next (ms)) tuples
 
 def following_line():
     # sensor prep
@@ -67,8 +59,9 @@ def following_line():
             time.sleep(0.1)
             # should continue if he found the line again
             found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
-            if found_line > offset_grey:
-                break
+            # if found_line > offset_grey:
+            #    break
+
         # tried error minimization with gyro, but too imprecise
 
     def colour_calibration():
@@ -95,9 +88,9 @@ def following_line():
 
     # automated colour assigning
     for x in calibrated_colors:
-    # wait, so we can move Robo and know which colour is next
+        # wait, so we can move Robo and know which colour is next
         input(f"Press enter to read {x}.")
-    # getting and saving rgb-values
+        # getting and saving rgb-values
         colors[x] = colour_calibration()
         print(colors[x])
 
@@ -105,42 +98,42 @@ def following_line():
     # converting white and black to greyscale / 2.55 to norm it from 0 to 100
     white_grey = 0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]
     black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
+    print(f'black_grey: {black_grey},  white_grey: {white_grey}')
 
     # Döbeln:
     # white_grey = 230
     # black_grey = 85
 
     # APB:
-    # white_grey = 310
-    # black_grey = 180
+    # white_grey = 300
+    # black_grey = 50
 
     # calculating offset
-    print(f'black_grey: {black_grey},  white_grey: {white_grey}')
     # döbeln: - 20
-    offset_grey = ((white_grey + black_grey) / 2) + 30
+    offset_grey = ((white_grey + black_grey) / 2) + 40
 
     print('offset_grey: ', offset_grey)
 
     # declaring proportional gain
-    k_p = 0.5
+    k_p = 0.9
     # integral gain
-    k_i = 1 * 10 ** - 5
+    k_i = 0 * 10 ** - 5
     # derivative gain
-    k_d = 100
+    k_d = 5 * 10 ** -1
     # for summing up the error, hence integral
-    integral = 0
+    all_err = []
     # for calc the derivative
     last_err = 0
+
     # so we can move Robo again
     input("Press enter to start")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 300
-    # starting the motors
+    t_p = 200
     motor_prep()
     # speed(t_p, t_p)
     # for stopping the process for testing
     print("Press enter to stop")
-    x = 0
+
     while True:
         # this stops the loop if I press enter, IDK how it works
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
@@ -151,7 +144,7 @@ def following_line():
             # turn if bottle is less than 150 mm before Robo,
             # so we don't always measure, it may be more energy efficient??
             if us.value() < 150:
-                turn(360)
+                turn(175)
             # detects if the cs sees red
             r, g, b = cs.raw[0], cs.raw[1], cs.raw[2]
             if r > g * 2 and r > b * 2:
@@ -163,22 +156,32 @@ def following_line():
             # calculating turn_speed and if turning is necessary
             # converting to greyscale / 2.55 to norm it from 0 to 100
             light_grey = 0.3 * r + 0.59 * g + 0.11 * b
-            print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
+            # print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
             # calculating error
             err = light_grey - offset_grey
-            # calc sum of errors
-            integral = integral + err
+            # add err to integral array
+            all_err.append(err)
+            # check if integral has to many values
+            if len(all_err) > 5 * 10 ** 3:
+                # remove the first(first in first out)
+                all_err.pop(0)
+            # calc integral
+            integral = sum(all_err)
+            # integral * k_i should not be bigger than +-30, that means an additional difference of 60 ticks
+            integral_adjusted = min(max(integral, -3000000), 3000000)
             # calc derivative
             derivative = err - last_err
-            # calc turn + k_i * integral + k_d * derivative
-            turns = k_p * err + k_i * integral
+            # calc turn = k_p * err + k_i * integral + k_d * derivative
+            turns = k_p * err + k_d * derivative
+            if turns > 150:
+                turns += k_i * integral_adjusted
             # print(f'P: {k_p*err} and D:{k_i*integral}')
             # driving with adjusted speed
             # a white line
             new_speed_left = t_p + turns
             new_speed_right = t_p - turns
             speed(new_speed_left, new_speed_right)
-            print(f'new speed left: {new_speed_left}, new speed right: {new_speed_right}')
-            print()
+            # print(f'new speed left: {new_speed_left}, new speed right: {new_speed_right}')
+            # print()
             last_err = err
-            # time.sleep(5)
+            # time.sleep(3)

@@ -8,11 +8,12 @@ import paho.mqtt.client as mqtt
 import uuid
 import signal
 import time
-import movement as mov
+import Robot as rob
 from ev3dev.core import Motor
 from communication import Communication
 from odometry import Odometry
 from planet import Direction, Planet
+
 
 client = None  # DO NOT EDIT
 
@@ -44,7 +45,8 @@ def run():
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
     # print("Hello World!")
-    mov.following_line()
+    robot = rob.Robot()
+    robot.run_all()
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):
