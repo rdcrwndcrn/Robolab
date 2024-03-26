@@ -27,6 +27,9 @@ class Follower:
 
     # for node scanning
     lines = []
+    # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
+    # north is where Rob is looking before and after the scan
+    nodes = [0, 0, 0, 0]
 
     # for PID
     # declaring proportional gain
@@ -41,6 +44,7 @@ class Follower:
     def __init__(self):
         pass
 
+    # to help with measuring the colors in the colors dict
     def calibration(self):
         # average rgb
         avg_r = 0
@@ -59,6 +63,7 @@ class Follower:
         avg_b /= 100
         return [avg_r, avg_g, avg_b]
 
+    # to actually set the rgb colors in the colors dict
     def set_color(self):
 
         # initialising colour sensor
@@ -66,10 +71,10 @@ class Follower:
         # using rgb-mode
         cs.mode = 'RGB-RAW'
         calibrated_colors = ['black', 'white', 'red', 'blue']
-        self.colors['black'] = [28.2, 34.43, 27.13]
-        self.colors['white'] = [170.99, 248.61, 154.26]
-        self.colors['red'] = [166.65, 31.74, 29.61]
-        self.colors['blue'] = [24.43, 80.04, 79.23]
+        self.colors['black'] = [25.57, 32.08, 26.29]
+        self.colors['white'] = [172.23, 249.21, 157.92]
+        self.colors['red'] = [101.53, 22.14, 22.65]
+        self.colors['blue'] = [16.95, 65.65, 72.39]
         '''
         # automated colour assigning
         for x in calibrated_colors:
@@ -96,6 +101,7 @@ class Follower:
         self.m_left.stop_action = "brake"
         self.m_right.stop_action = "brake"
 
+    # to change the speed on both wheels
     def speed(self, v_l, v_r):
         # motor_prep()
         # testing speed boundary's and adjusting speed if necessary
@@ -108,7 +114,9 @@ class Follower:
         self.m_left.command = "run-forever"
         self.m_right.command = "run-forever"
 
+    # basic turn function with degrees
     def turn(self, degree):
+        self.motor_prep()
         # opposite wheel directions are twice as fast
         # 1860 * 2 ticks ~ 360 degree
         # ticks the wheels should to do
@@ -130,13 +138,14 @@ class Follower:
             # if found_line > offset_grey:
             #    break
 
+    # function for scanning the node and noting motor position if black is found
     def node_scan(self, degree):
         print("Scanning for lines")
         # motor prep so the position attribute from the motors is exact
         self.motor_prep()
         # 1860 * 2 ticks ~ 360 degree
         # opposite wheel directions are twice as fast
-        ticks = 1860
+        ticks = 1850
         # ticks the wheels should to do
         self.m_left.position_sp = (1 / 2 * degree * ticks) / 360
         self.m_right.position_sp = -(1 / 2 * degree * ticks) / 360
@@ -158,8 +167,41 @@ class Follower:
                 print(f'found line at {self.m_left.position}')
                 self.lines.append(self.m_left.position)
 
+    # function to turn the motor.position into a compass
     def degree_to_celestial_direction(self):
-        pass
+        # help arrays
+        north = []
+        east = []
+        south = []
+        west = []
+        # the motor position starts at 0 and after the scan it has 1000
+        # if line found, then position gets noted in lines
+        # idea: make 4 intervals and if at least one value is in it, there is a line
+        for x in self.lines:
+            if x < 175:
+                north.append(x)
+            elif x < 425:
+                east.append(x)
+            elif x < 675:
+                south.append(x)
+            elif x < 925:
+                west.append(x)
+            elif x < 1000:
+                north.append(x)
+        print(f'north: {north}')
+        print(f'east: {east}')
+        print(f'south: {south}')
+        print(f'west: {west}')
+        # if a value is in the compass help arrays, there should be a line, change value in nodes to true (1)
+        if north:
+            self.nodes[0] = 1
+        if east:
+            self.nodes[1] = 1
+        if south:
+            self.nodes[2] = 1
+        if west:
+            self.nodes[3] = 1
+        print(self.nodes)
 
     def node_state(self):
         # try to get into the mit of the node
@@ -174,9 +216,10 @@ class Follower:
         self.m_right.command = "run-to-rel-pos"
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
             time.sleep(0.1)
+        self.turn(-24)
         # scan while turning back to the start position and save it into an array
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
-        self.node_scan(360)
+        self.node_scan(384)
         self.degree_to_celestial_direction()
         # choosing line function
         self.follower_state()
@@ -203,12 +246,12 @@ class Follower:
                     self.turn(175)
                 # detects if the cs sees red
                 r, g, b = self.cs.raw[0], self.cs.raw[1], self.cs.raw[2]
-                if r > 1.5 * g and r > 2 * b:
+                if r > 2 * g and r > 3 * b:
                     print(f"I am now at red node: {self.cs.raw}")
                     # enter node state
                     self.node_state()
                 # same for blue
-                if b > 2 * r and b > 1.5 * g:
+                if b > 3 * r and b > 1 * g:
                     print(f"I am now at blue node: {self.cs.raw}")
                     self.node_state()
                 # calculating turn_speed and if turning is necessary
