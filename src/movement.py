@@ -23,42 +23,43 @@ class Follower:
     # left motor is on output A
     m_left = ev3.LargeMotor("outA")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 300
+    t_p = 220
 
     # for node scanning
     lines = []
 
     # for PID
     # declaring proportional gain
-    k_p = 0.6
+    k_p = 1.4
     # integral gain
     k_i = 0 * 10 ** - 5
     # derivative gain
-    k_d = 7 * 10 ** -1
+    k_d = 0 * 10 ** -1
     # for summing up the error, hence integral
     all_err = []
 
     def __init__(self):
         pass
 
+    def calibration(self):
+        # average rgb
+        avg_r = 0
+        avg_g = 0
+        avg_b = 0
+
+        # measuring 100 times
+        for i in range(100):
+            red, green, blue = self.cs.raw
+            avg_r += red
+            avg_g += green
+            avg_b += blue
+
+        avg_r /= 100
+        avg_g /= 100
+        avg_b /= 100
+        return [avg_r, avg_g, avg_b]
+
     def set_color(self):
-        def calibration():
-            # average rgb
-            avg_r = 0
-            avg_g = 0
-            avg_b = 0
-
-            # measuring 100 times
-            for i in range(100):
-                red, green, blue = cs.raw
-                avg_r += red
-                avg_g += green
-                avg_b += blue
-
-            avg_r /= 100
-            avg_g /= 100
-            avg_b /= 100
-            return [avg_r, avg_g, avg_b]
 
         # initialising colour sensor
         cs = ev3.ColorSensor()
@@ -69,15 +70,15 @@ class Follower:
         self.colors['white'] = [257.0, 358.55, 190.05]
         self.colors['red'] = [166.65, 31.74, 29.61]
         self.colors['blue'] = [36.64, 108.59, 95.47]
-        '''
+
         # automated colour assigning
         for x in calibrated_colors:
             # wait, so we can move Robo and know which colour is next
             input(f"Press enter to read {x}.")
             # getting and saving rgb-values
-            colors[x] = colour_calibration()
-            print(colors[x])
-        '''
+            self.colors[x] = self.calibration()
+            print(self.colors[x])
+
         # colour calc to calc the error and use that for PID calc
         # converting white and black to greyscale / 2.55 to norm it from 0 to 100
         white_grey = 0.3 * self.colors['white'][0] + 0.59 * self.colors['white'][1] + 0.11 * self.colors['white'][2]
@@ -217,6 +218,7 @@ class Follower:
                 # calculating turn_speed and if turning is necessary
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 light_grey = 0.3 * r + 0.59 * g + 0.11 * b
+                print(f'light grey: {light_grey}')
                 # print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
                 # calculating error
                 err = light_grey - self.offset_grey
