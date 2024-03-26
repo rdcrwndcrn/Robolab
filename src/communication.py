@@ -49,9 +49,16 @@ class Communication:
 
         # YOUR CODE FOLLOWS (remove pass, please!)
         print("Nachricht erhalten:", payload)
-        #data = message.payload.decode("utf-8")
-        #data1 = data["message"]
-        #print(payload.get("planetName"))
+        #output = payload.values()
+        #print(output)
+        #out = payload["payload"]
+        #print(out)
+
+        output = json.dumps(payload["payload"])
+        print(output)
+
+        #print(payload[2]["payload"]["planetName"])
+
 
 
 
