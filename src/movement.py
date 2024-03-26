@@ -30,11 +30,11 @@ class Follower:
 
     # for PID
     # declaring proportional gain
-    k_p = 1.4
+    k_p = 1.5
     # integral gain
-    k_i = 0 * 10 ** - 5
+    k_i = 1 * 10 ** - 5
     # derivative gain
-    k_d = 0 * 10 ** -1
+    k_d = 7 * 10 ** -1
     # for summing up the error, hence integral
     all_err = []
 
@@ -81,12 +81,12 @@ class Follower:
         '''
         # colour calc to calc the error and use that for PID calc
         # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-        white_grey = 0.3 * self.colors['white'][0] + 0.5 * self.colors['white'][1] + 0.11 * self.colors['white'][2]
-        black_grey = 0.3 * self.colors['black'][0] + 0.5 * self.colors['black'][1] + 0.11 * self.colors['black'][2]
+        white_grey = 0.3 * self.colors['white'][0] + 0.59 * self.colors['white'][1] + 0.11 * self.colors['white'][2]
+        black_grey = 0.3 * self.colors['black'][0] + 0.59 * self.colors['black'][1] + 0.11 * self.colors['black'][2]
         print(f'black_grey: {black_grey},  white_grey: {white_grey}')
 
         # calculating offset
-        self.offset_grey = ((white_grey + black_grey) / 2) + 30
+        self.offset_grey = ((white_grey + black_grey) / 2)
         print('offset_grey: ', self.offset_grey)
 
     def motor_prep(self):
@@ -204,12 +204,12 @@ class Follower:
                 # detects if the cs sees red
                 r, g, b = self.cs.raw[0], self.cs.raw[1], self.cs.raw[2]
                 if r > 1.5 * g and r > 2 * b:
-                    print("I am now at red node")
+                    print(f"I am now at red node: {self.cs.raw}")
                     # enter node state
                     self.node_state()
                 # same for blue
-                if b > 2 * r:
-                    print("I am now at blue node")
+                if b > 2 * r and b > 1.5 * g:
+                    print(f"I am now at blue node: {self.cs.raw}")
                     self.node_state()
                 # calculating turn_speed and if turning is necessary
                 # converting to greyscale / 2.55 to norm it from 0 to 100
@@ -221,13 +221,13 @@ class Follower:
                 # add err to integral array
                 self.all_err.append(0.6 * err)
                 # check if integral has to many values
-                if len(self.all_err) > 5 * 10 ** 3:
+                if len(self.all_err) > 5 * 10 ** 2:
                     # remove the first(first in first out)
                     self.all_err.pop(0)
                 # calc integral
                 integral = sum(self.all_err)
-                # integral * k_i should not be bigger than +-30, that means an additional difference of 60 ticks
-                integral_adjusted = min(max(integral, -3000000), 3000000)
+                # integral * k_i should not be bigger than +-10, that means an additional difference of 10 ticks
+                integral_adjusted = min(max(integral, -1000000), 1000000)
                 # calc derivative
                 derivative = err - last_err
                 # calc turn = k_p * err + k_i * integral + k_d * derivative
