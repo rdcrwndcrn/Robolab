@@ -3,6 +3,7 @@ from ev3dev import ev3
 import sys
 import select
 
+
 def following_line():
     # sensor prep
     # initialising colour sensor
@@ -13,7 +14,6 @@ def following_line():
     us = ev3.UltrasonicSensor()
     # continuous measurement in centimeters
     us.mode = 'US-DIST-CM'
-
     # assigning motors
     # right motor is on output C
     m_right = ev3.LargeMotor("outC")
@@ -62,7 +62,47 @@ def following_line():
             # if found_line > offset_grey:
             #    break
 
-        # tried error minimization with gyro, but too imprecise
+    def turn_node(grad):
+        # 2280 ticks ~ 360 degree
+        # opposite wheel directions are twice as fast
+        # ticks the wheels should to do
+        m_left.position_sp = (1 / 2 * grad * 1155) / 360
+        m_right.position_sp = -(1 / 2 * grad * 1155) / 360
+        # ticks per second, up to 1050
+        m_left.speed_sp = 100
+        m_right.speed_sp = 100
+        # executing commands
+        m_left.command = "run-to-rel-pos"
+        m_right.command = "run-to-rel-pos"
+        # print(m_left.state.__repr__())
+        # for saving the degrees of the lines
+        lines = []
+        # giving them time to execute
+        while 'running' in m_left.state or 'running' in m_right.state:
+            time.sleep(0.1)
+            # search for lines
+            found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+            if found_line > offset_grey:
+            # lines.append(degree)
+
+        return lines
+
+    def node():
+        # to align the colour sensor
+        m_left.position_sp = 150
+        m_right.position_sp = 150
+        # ticks per second, up to 1050
+        m_left.speed_sp = 100
+        m_right.speed_sp = 100
+        # executing commands
+        m_left.command = "run-to-rel-pos"
+        m_right.command = "run-to-rel-pos"
+        # so it can not miss the line in front of it
+        turn(-20)
+        # scan while turning back to the start position and save it into an array
+        # array: Nord, East, South, West
+        lines = turn_node(380)
+        return lines
 
     def colour_calibration():
         # average rgb
@@ -84,7 +124,7 @@ def following_line():
 
     # for saving the calibrated colours
     colors = {}
-    calibrated_colors = ['black', 'white']
+    calibrated_colors = ['black', 'white', 'red', 'blue']
 
     # automated colour assigning
     for x in calibrated_colors:
@@ -147,12 +187,15 @@ def following_line():
                 turn(175)
             # detects if the cs sees red
             r, g, b = cs.raw[0], cs.raw[1], cs.raw[2]
-            if r > g * 2 and r > b * 2:
+            if (colors['red'][0] - 50 < r < colors['red'][0] + 50 and colors['red'][1] < g < colors['red'][1] + 50
+                    and colors['red'][2] < b < colors['red'][2] + 50):
                 # break loop to stop if it does
-                break
+                node()
             # same for blue
-            if b > r * 2 and b > g * 2:
-                break
+            if (colors['blue'][0] - 50 < r < colors['blue'][0] + 50 and colors['blue'][1] < g < colors['blue'][1] + 50
+                    and colors['blue'][2] < b < colors['blue'][2] + 50):
+                # break loop to stop if it does
+                node()
             # calculating turn_speed and if turning is necessary
             # converting to greyscale / 2.55 to norm it from 0 to 100
             light_grey = 0.3 * r + 0.59 * g + 0.11 * b

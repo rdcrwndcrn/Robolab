@@ -4,7 +4,7 @@ import select
 import time
 
 
-# state where i save all the data, maybe theres a better way to do this
+# state where I save all the data, maybe there's a better way to do this
 class Robot:
     # sensors and motors
     cs = ev3.ColorSensor()
@@ -16,11 +16,11 @@ class Robot:
     us.mode = 'US-DIST-CM'
     # assigning motors
     # right motor is on output C
-    m_right = ev3.LargeMotor("outC")
+    m_right = ev3.LargeMotor("outD")
     # left motor is on output A
     m_left = ev3.LargeMotor("outA")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 200
+    t_p = 300
 
     # dict for colours and rgb values
     colors = {}
@@ -40,7 +40,7 @@ class Robot:
     # for calc the derivative
     last_err = 0
 
-    # gets executed when the class is called and intializes an object
+    # gets executed when the class is called and initializes an object
     def __init__(self):
         # so the first state is calibrate
         self.currentState = CalibrateColours()
@@ -49,7 +49,7 @@ class Robot:
     def run_all(self):
         # while the current state is a state, run the state
         while isinstance(self.currentState, State):
-            # to exectute run in the state
+            # to execute run in the state
             self.currentState = self.currentState.run(self)
 
     def motor_prep(self):
@@ -71,18 +71,18 @@ class Robot:
         self.m_right.command = "run-forever"
 
 
-# for state maschine
+# for state machine
 class State:
-    # abstract class, so this method has to be implemented by subclasses, these are the realy states for Robo
+    # abstract class, so this method has to be implemented by subclasses, these are the really states for Robo
     def run(self, robot):
         raise NotImplementedError("Subclasses must implement this method.")
 
 
 class CalibrateColours(State):
-    # this is the first state, so we can calibrate the colours, everythin in run gets executed if we are in this state
+    # this is the first state, so we can calibrate the colours, everything in run gets executed if we are in this state
     def run(self, robot):
-        # all calibration is in the funtion, the others get executed there as well
-        self.activ_colour_calibration(robot)
+        # all calibration is in the function, the others get executed there as well
+        CalibrateColours.activ_colour_calibration(robot)
 
     @staticmethod
     def colour_calibration(robot):
@@ -116,13 +116,13 @@ class CalibrateColours(State):
             # wait, so we can move Robo and know which colour is next
             input(f"Press enter to read {x}.")
             # getting and saving rgb-values
-            robot.colors[x] = robot.colour_calibration()
+            robot.colors[x] = CalibrateColours.colour_calibration(robot)
             print(robot.colors[x])
-            # calcu greyscale vlaues for black and white for offset
-            grey = robot.calc_greyscale(robot.colors[x][0], robot.colors[x][1], robot.colors[x][2])
+            # calcu greyscale values for black and white for offset
+            grey = CalibrateColours.calc_greyscale(robot.colors[x][0], robot.colors[x][1], robot.colors[x][2])
             print(f'{x} grey: {grey}')
             # saving it
-            robot.offset = robot.calc_offset(robot)
+            robot.offset = CalibrateColours.calc_offset(robot)
             # calling all methods in this method is not relly elegant, but it works for now
             return Follower()
 
@@ -196,7 +196,7 @@ class Follower(State):
 
 
 class Turn(State):
-    # i hope for every bottle the degree approach works
+    # I hope for every bottle the degree approach works
     degree = 175
 
     def run(self, robot):
@@ -227,7 +227,7 @@ class Turn(State):
         return Follower()
 
 
-# explores possible routes from node, calls communication, maybe dikstra
+# explores possible routes from node, calls communication, maybe Dijkstra
 class Node(State):
 
     def run(self, robot):

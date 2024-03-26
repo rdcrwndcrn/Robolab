@@ -9,6 +9,7 @@ import uuid
 import signal
 import time
 import robot as rob
+import movement as mov
 from ev3dev.core import Motor
 from communication import Communication
 from odometry import Odometry
@@ -44,9 +45,10 @@ def run():
     # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
-    # print("Hello World!")
+    '''print("Hello World!")
     robot = rob.Robot()
-    robot.run_all()
+    robot.run_all()'''
+    mov.following_line()
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):
