@@ -48,8 +48,8 @@ class Communication:
         self.logger.debug(json.dumps(payload, indent=2))
 
         # YOUR CODE FOLLOWS (remove pass, please!)
-        print("Hello World")
         print("Nachricht erhalten:", payload)
+        return payload
 
     # DO NOT EDIT THE METHOD SIGNATURE
     #
@@ -87,6 +87,10 @@ class Communication:
             import traceback
             traceback.print_exc()
             raise
+
+    def payload_output(self, client, data, message):
+        output = self.on_message(client, data, message)
+        return output
 
 
 

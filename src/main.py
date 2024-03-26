@@ -41,9 +41,14 @@ def run():
     # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
-    testplanet = Communication(client, logger)
-    testplanet.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
-    time.sleep(10)
+    roboter = Communication(client, logger)
+    roboter.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    time.sleep(3)
+
+    roboter.send_message("explorer/102", message={"from": "client", "type":"ready"})
+    time.sleep(3)
+
+
 
 
 
