@@ -39,7 +39,7 @@ def turn(degree):
         time.sleep(0.1)
         # should continue if he found the line again
         found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
-        if found_line > offset_grey:
+        if found_line < offset_grey:
             x += 1
             print(f"found Line: {x}")
 
@@ -81,11 +81,12 @@ def following_line():
         m_right.command = "run-forever"
 
     def turn(degree):
-        # 2280 ticks ~ 360 degree
         # opposite wheel directions are twice as fast
+        # 1860 * 2 ticks ~ 360 degree
         # ticks the wheels should to do
-        m_left.position_sp = (1 / 2 * degree * 1155) / 360
-        m_right.position_sp = -(1 / 2 * degree * 1155) / 360
+        ticks = 1860
+        m_left.position_sp = (1 / 2 * degree * ticks) / 360
+        m_right.position_sp = -(1 / 2 * degree * ticks) / 360
         # ticks per second, up to 1050
         m_left.speed_sp = 100
         m_right.speed_sp = 100
