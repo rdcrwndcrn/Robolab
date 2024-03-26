@@ -5,6 +5,7 @@ import json
 import ssl
 import paho.mqtt.client as mqtt
 import logging
+import time
 
 class Communication:
     """
@@ -30,9 +31,9 @@ class Communication:
                                password='stas6KE6Wj')  # Your group credentials, see the python skill-test for your group password
         self.client.connect('mothership.inf.tu-dresden.de', port=8883)
         self.client.subscribe('explorer/102', qos=2)  # Subscribe to topic explorer/xxx
+        self.client.loop_start()
 
         self.logger = logger
-        print(self.client.is_connected())
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def on_message(self, client, data, message):
@@ -47,10 +48,8 @@ class Communication:
         self.logger.debug(json.dumps(payload, indent=2))
 
         # YOUR CODE FOLLOWS (remove pass, please!)
-        data = json.loads(message.payload.decode("utf-8"))
-        print(json.dumps(data, indent=2))
-        print("Nachricht erhalten:", str(message.payload.decode("utf-8")))
-
+        print("Hello World")
+        print("Nachricht erhalten:", payload)
 
     # DO NOT EDIT THE METHOD SIGNATURE
     #
@@ -67,16 +66,8 @@ class Communication:
         self.logger.debug(json.dumps(message, indent=2))
 
         # YOUR CODE FOLLOWS (remove pass, please!)
-        print(self.client.is_connected())
         self.client.publish(topic, json.dumps(message, indent=2))
         print("Nachricht gesendet:", message)
-
-        # Callback für den Empfang von Nachrichten registrieren
-        self.client.on_message = Communication.on_message
-        self.client.subscribe('explorer/102', qos=2)
-        data = json.loads(message.payload.decode('utf-8'))
-        print(json.dumps(data, indent=2))
-        print("\n")
 
     # DO NOT EDIT THE METHOD SIGNATURE OR BODY
     #
@@ -97,12 +88,7 @@ class Communication:
             traceback.print_exc()
             raise
 
-#Communication.__init__(self,paho.mqtt.client.Client, logging.Logger)
-#Communication.on_message(self,paho.mqtt.client.Client, data, message)
-#Communication.send_message(self,"explorer/102",message = {"from": "client","type": "testPlanet","payload": {"planetName": "Mebi"}})
-#Communication.safe_on_message_handler(self,paho.mqtt.client.Client,data,message)
 
-#x1 = Communication(paho.mqtt_client.Client, logging.Logger)
 
 
 

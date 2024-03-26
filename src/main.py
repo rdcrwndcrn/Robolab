@@ -7,6 +7,7 @@ import paho.mqtt.client as mqtt
 import uuid
 import signal
 import json
+import time
 
 from communication import Communication
 from odometry import Odometry
@@ -40,10 +41,12 @@ def run():
     # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
-    testplanet = Communication(client, logging.Logger)
-    testplanet.safe_on_message_handler(mqtt.Client, data={"planetName": "Mebi"}, message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    testplanet = Communication(client, logger)
     testplanet.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
-    testplanet.on_message(mqtt.Client, data={"planetName": "Mebi"}, message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    time.sleep(10)
+
+
+
 
 
 # DO NOT EDIT
