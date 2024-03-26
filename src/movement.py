@@ -15,8 +15,8 @@ def following_line():
     # continuous measurement in centimeters
     us.mode = 'US-DIST-CM'
     # assigning motors
-    # right motor is on output C
-    m_right = ev3.LargeMotor("outC")
+    # right motor is on output D
+    m_right = ev3.LargeMotor("outD")
     # left motor is on output A
     m_left = ev3.LargeMotor("outA")
 
@@ -58,7 +58,7 @@ def following_line():
         while 'running' in m_left.state or 'running' in m_right.state:
             time.sleep(0.1)
             # should continue if he found the line again
-            found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+            # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
             # if found_line > offset_grey:
             #    break
 
@@ -75,6 +75,8 @@ def following_line():
         m_left.command = "run-to-rel-pos"
         m_right.command = "run-to-rel-pos"
         # print(m_left.state.__repr__())
+        # to calc the degree where how fare it rotated when it detected a line
+        # degree =
         # for saving the degrees of the lines
         lines = []
         # giving them time to execute
@@ -83,9 +85,12 @@ def following_line():
             # search for lines
             found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
             if found_line > offset_grey:
-            # lines.append(degree)
-
+                print(m_left.position())
+                # lines.append(degree)
         return lines
+
+    def degree_to_celestial_direction(lines):
+
 
     def node():
         # to align the colour sensor
@@ -100,7 +105,7 @@ def following_line():
         # so it can not miss the line in front of it
         turn(-20)
         # scan while turning back to the start position and save it into an array
-        # array: Nord, East, South, West
+        # array: Nord, East, South, West, from the positioning of the robot, not the card yet
         lines = turn_node(380)
         return lines
 
