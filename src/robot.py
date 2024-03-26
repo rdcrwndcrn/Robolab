@@ -227,7 +227,7 @@ class Turn(State):
         return Follower()
 
 
-# explorates possible routes from node, calls dikstra and communication
+# explores possible routes from node, calls communication, maybe dikstra
 class Node(State):
 
     def run(self, robot):

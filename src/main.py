@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 import uuid
 import signal
 import time
-import Robot as rob
+import robot as rob
 from ev3dev.core import Motor
 from communication import Communication
 from odometry import Odometry
