@@ -38,7 +38,6 @@ class Follower:
     # for summing up the error, hence integral
     all_err = []
 
-
     def __init__(self):
         pass
 
@@ -154,7 +153,7 @@ class Follower:
             time.sleep(0.1)
             # should continue if he found the line again
             found_line = 0.3 * self.cs.raw[0] + 0.59 * self.cs.raw[1] + 0.11 * self.cs.raw[2]
-            if found_line < self.offset_grey[0]:
+            if found_line < self.offset_grey:
                 print(f'found line at {self.m_left.position}')
                 self.lines.append(self.m_left.position)
 
@@ -164,8 +163,8 @@ class Follower:
     def node_state(self):
         # try to get into the mit of the node
         # to align the colour sensor
-        self.m_left.position_sp = 150
-        self.m_right.position_sp = 150
+        self.m_left.position_sp = 200
+        self.m_right.position_sp = 200
         # ticks per second, up to 1050
         self.m_left.speed_sp = 100
         self.m_right.speed_sp = 100
@@ -203,8 +202,9 @@ class Follower:
                     self.turn(175)
                 # detects if the cs sees red
                 r, g, b = self.cs.raw[0], self.cs.raw[1], self.cs.raw[2]
-                if (self.colors['red'][0] - 10 < r < self.colors['red'][0] + 10 and self.colors['red'][1] - 10 < g < self.colors['red'][
-                    1] + 10
+                if (self.colors['red'][0] - 10 < r < self.colors['red'][0] + 10 and self.colors['red'][1] - 10 < g <
+                        self.colors['red'][
+                            1] + 10
                         and self.colors['red'][2] - 10 < b < self.colors['red'][2] + 10):
                     print("I am now at red node")
                     # enter node state
@@ -219,7 +219,7 @@ class Follower:
                 light_grey = 0.3 * r + 0.59 * g + 0.11 * b
                 # print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
                 # calculating error
-                err = light_grey - self.offset_grey[0]
+                err = light_grey - self.offset_grey
                 # add err to integral array
                 self.all_err.append(0.6 * err)
                 # check if integral has to many values
