@@ -4,6 +4,45 @@ import sys
 import select
 
 
+def turn(degree):
+    # sensor prep
+    # initialising colour sensor
+    cs = ev3.ColorSensor()
+    # using rgb-mode
+    cs.mode = 'RGB-RAW'
+    # assigning ultrasonic sensor to us
+    us = ev3.UltrasonicSensor()
+    # continuous measurement in centimeters
+    us.mode = 'US-DIST-CM'
+    # assigning motors
+    # right motor is on output D
+    m_right = ev3.LargeMotor("outD")
+    # left motor is on output A
+    m_left = ev3.LargeMotor("outA")
+    offset_grey = 200
+    # 1860 * 2 ticks ~ 360 degree
+    # opposite wheel directions are twice as fast
+    # ticks the wheels should to do
+    ticks = 1860
+    m_left.position_sp = (1 / 2 * degree * ticks) / 360
+    m_right.position_sp = -(1 / 2 * degree * ticks) / 360
+    # ticks per second, up to 1050
+    m_left.speed_sp = 150
+    m_right.speed_sp = 150
+    # executing commands
+    m_left.command = "run-to-rel-pos"
+    m_right.command = "run-to-rel-pos"
+    # print(m_left.state.__repr__())
+    # giving them time to execute
+    x = 0
+    while 'running' in m_left.state or 'running' in m_right.state:
+        time.sleep(0.1)
+        # should continue if he found the line again
+        found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+        if found_line > offset_grey:
+            x += 1
+            print(f"found Line: {x}")
+
 def following_line():
     # sensor prep
     # initialising colour sensor
@@ -90,7 +129,7 @@ def following_line():
         return lines
 
     def degree_to_celestial_direction(lines):
-
+        pass
 
     def node():
         # to align the colour sensor
@@ -106,8 +145,9 @@ def following_line():
         turn(-20)
         # scan while turning back to the start position and save it into an array
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
-        lines = turn_node(380)
-        return lines
+        # lines = turn_node(380)
+        # lines = degree_to_celestial_direction(lines)
+        # return lines
 
     def colour_calibration():
         # average rgb
@@ -130,7 +170,12 @@ def following_line():
     # for saving the calibrated colours
     colors = {}
     calibrated_colors = ['black', 'white', 'red', 'blue']
+    colors['black'] = [25.01, 38.91, 23.39]
+    colors['white'] = [254.63, 361.27, 194.94]
+    colors['red'] = [168.09, 48.15, 28.1]
+    colors['blue'] = [35.49, 123.36, 87.44]
 
+    '''
     # automated colour assigning
     for x in calibrated_colors:
         # wait, so we can move Robo and know which colour is next
@@ -138,6 +183,7 @@ def following_line():
         # getting and saving rgb-values
         colors[x] = colour_calibration()
         print(colors[x])
+    '''
 
     # colour calc to calc the error and use that for PID calc
     # converting white and black to greyscale / 2.55 to norm it from 0 to 100
@@ -145,26 +191,16 @@ def following_line():
     black_grey = 0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]
     print(f'black_grey: {black_grey},  white_grey: {white_grey}')
 
-    # Döbeln:
-    # white_grey = 230
-    # black_grey = 85
-
-    # APB:
-    # white_grey = 300
-    # black_grey = 50
-
     # calculating offset
-    # döbeln: - 20
-    offset_grey = ((white_grey + black_grey) / 2) + 40
-
+    offset_grey = ((white_grey + black_grey) / 2) + 30
     print('offset_grey: ', offset_grey)
 
     # declaring proportional gain
-    k_p = 0.9
+    k_p = 0.8
     # integral gain
-    k_i = 0 * 10 ** - 5
+    k_i = 2 * 10 ** - 5
     # derivative gain
-    k_d = 5 * 10 ** -1
+    k_d = 7 * 10 ** -1
     # for summing up the error, hence integral
     all_err = []
     # for calc the derivative
@@ -173,7 +209,7 @@ def following_line():
     # so we can move Robo again
     input("Press enter to start")
     # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 200
+    t_p = 300
     motor_prep()
     # speed(t_p, t_p)
     # for stopping the process for testing
@@ -192,13 +228,13 @@ def following_line():
                 turn(175)
             # detects if the cs sees red
             r, g, b = cs.raw[0], cs.raw[1], cs.raw[2]
-            if (colors['red'][0] - 50 < r < colors['red'][0] + 50 and colors['red'][1] < g < colors['red'][1] + 50
-                    and colors['red'][2] < b < colors['red'][2] + 50):
+            if (colors['red'][0] - 10 < r < colors['red'][0] + 10 and colors['red'][1] - 10 < g < colors['red'][1] + 10
+                    and colors['red'][2] - 10 < b < colors['red'][2] + 10):
                 # break loop to stop if it does
                 node()
             # same for blue
-            if (colors['blue'][0] - 50 < r < colors['blue'][0] + 50 and colors['blue'][1] < g < colors['blue'][1] + 50
-                    and colors['blue'][2] < b < colors['blue'][2] + 50):
+            if (colors['blue'][0] - 10 < r < colors['blue'][0] + 10 and colors['blue'][1] - 10 < g < colors['blue'][1]
+                    + 10 and colors['blue'][2] - 10 < b < colors['blue'][2] + 10):
                 # break loop to stop if it does
                 node()
             # calculating turn_speed and if turning is necessary
@@ -208,7 +244,7 @@ def following_line():
             # calculating error
             err = light_grey - offset_grey
             # add err to integral array
-            all_err.append(err)
+            all_err.append(0.6 * err)
             # check if integral has to many values
             if len(all_err) > 5 * 10 ** 3:
                 # remove the first(first in first out)

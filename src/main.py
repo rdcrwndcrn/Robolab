@@ -48,7 +48,7 @@ def run():
     '''print("Hello World!")
     robot = rob.Robot()
     robot.run_all()'''
-    mov.following_line()
+    mov.turn(360)
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):
