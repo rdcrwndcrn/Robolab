@@ -66,11 +66,11 @@ class Follower:
         # using rgb-mode
         cs.mode = 'RGB-RAW'
         calibrated_colors = ['black', 'white', 'red', 'blue']
-        self.colors['black'] = [39.93, 47.02, 34.79]
-        self.colors['white'] = [257.0, 358.55, 190.05]
+        self.colors['black'] = [28.2, 34.43, 27.13]
+        self.colors['white'] = [170.99, 248.61, 154.26]
         self.colors['red'] = [166.65, 31.74, 29.61]
-        self.colors['blue'] = [36.64, 108.59, 95.47]
-
+        self.colors['blue'] = [24.43, 80.04, 79.23]
+        '''
         # automated colour assigning
         for x in calibrated_colors:
             # wait, so we can move Robo and know which colour is next
@@ -78,11 +78,11 @@ class Follower:
             # getting and saving rgb-values
             self.colors[x] = self.calibration()
             print(self.colors[x])
-
+        '''
         # colour calc to calc the error and use that for PID calc
         # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-        white_grey = 0.3 * self.colors['white'][0] + 0.59 * self.colors['white'][1] + 0.11 * self.colors['white'][2]
-        black_grey = 0.3 * self.colors['black'][0] + 0.59 * self.colors['black'][1] + 0.11 * self.colors['black'][2]
+        white_grey = 0.3 * self.colors['white'][0] + 0.5 * self.colors['white'][1] + 0.11 * self.colors['white'][2]
+        black_grey = 0.3 * self.colors['black'][0] + 0.5 * self.colors['black'][1] + 0.11 * self.colors['black'][2]
         print(f'black_grey: {black_grey},  white_grey: {white_grey}')
 
         # calculating offset
@@ -153,7 +153,7 @@ class Follower:
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
             time.sleep(0.1)
             # should continue if he found the line again
-            found_line = 0.3 * self.cs.raw[0] + 0.59 * self.cs.raw[1] + 0.11 * self.cs.raw[2]
+            found_line = 0.3 * self.cs.raw[0] + 0.5 * self.cs.raw[1] + 0.11 * self.cs.raw[2]
             if found_line < self.offset_grey:
                 print(f'found line at {self.m_left.position}')
                 self.lines.append(self.m_left.position)
@@ -203,21 +203,17 @@ class Follower:
                     self.turn(175)
                 # detects if the cs sees red
                 r, g, b = self.cs.raw[0], self.cs.raw[1], self.cs.raw[2]
-                if (self.colors['red'][0] - 10 < r < self.colors['red'][0] + 10 and self.colors['red'][1] - 10 < g <
-                        self.colors['red'][
-                            1] + 10
-                        and self.colors['red'][2] - 10 < b < self.colors['red'][2] + 10):
+                if r > 1.5 * g and r > 2 * b:
                     print("I am now at red node")
                     # enter node state
                     self.node_state()
                 # same for blue
-                if (self.colors['blue'][0] - 10 < r < self.colors['blue'][0] + 10 and self.colors['blue'][1] - 10 < g <
-                        self.colors['blue'][1] + 10 and self.colors['blue'][2] - 10 < b < self.colors['blue'][2] + 10):
+                if b > 2 * r:
                     print("I am now at blue node")
                     self.node_state()
                 # calculating turn_speed and if turning is necessary
                 # converting to greyscale / 2.55 to norm it from 0 to 100
-                light_grey = 0.3 * r + 0.59 * g + 0.11 * b
+                light_grey = 0.3 * r + 0.5 * g + 0.11 * b
                 print(f'light grey: {light_grey}')
                 # print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
                 # calculating error
