@@ -49,7 +49,12 @@ class Communication:
 
         # YOUR CODE FOLLOWS (remove pass, please!)
         print("Nachricht erhalten:", payload)
-        return payload
+        #data = message.payload.decode("utf-8")
+        #data1 = data["message"]
+        #print(payload.get("planetName"))
+
+
+
 
     # DO NOT EDIT THE METHOD SIGNATURE
     #
@@ -88,9 +93,7 @@ class Communication:
             traceback.print_exc()
             raise
 
-    def payload_output(self, client, data, message):
-        output = self.on_message(client, data, message)
-        return output
+
 
 
 

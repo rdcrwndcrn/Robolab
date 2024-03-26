@@ -42,12 +42,13 @@ def run():
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
     roboter = Communication(client, logger)
-    roboter.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    #roboter.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    #time.sleep(3)
+    roboter.send_message("explorer/102",
+                         message={"from": "client", "type":"ready"})
     time.sleep(3)
-
-    roboter.send_message("explorer/102", message={"from": "client", "type":"ready"})
-    time.sleep(3)
-
+    #roboter.send_message("explorer/102",message={"from": "client", "type": "ready"})
+    #roboter.send_message({"from": "client", "type": "path", "payload": {"startX:"<Xs>,"startY:" <Ys>,"startDirection:<"1">,"endX:"1,"endY:"1,"endDirection:"1,"pathStatus:""free"}})
 
 
 
