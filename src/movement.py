@@ -4,45 +4,6 @@ import sys
 import select
 
 
-def turn(degree):
-    # sensor prep
-    # initialising colour sensor
-    cs = ev3.ColorSensor()
-    # using rgb-mode
-    cs.mode = 'RGB-RAW'
-    # assigning ultrasonic sensor to us
-    us = ev3.UltrasonicSensor()
-    # continuous measurement in centimeters
-    us.mode = 'US-DIST-CM'
-    # assigning motors
-    # right motor is on output D
-    m_right = ev3.LargeMotor("outD")
-    # left motor is on output A
-    m_left = ev3.LargeMotor("outA")
-    offset_grey = 200
-    # 1860 * 2 ticks ~ 360 degree
-    # opposite wheel directions are twice as fast
-    # ticks the wheels should to do
-    ticks = 1860
-    m_left.position_sp = (1 / 2 * degree * ticks) / 360
-    m_right.position_sp = -(1 / 2 * degree * ticks) / 360
-    # ticks per second, up to 1050
-    m_left.speed_sp = 150
-    m_right.speed_sp = 150
-    # executing commands
-    m_left.command = "run-to-rel-pos"
-    m_right.command = "run-to-rel-pos"
-    # print(m_left.state.__repr__())
-    # giving them time to execute
-    x = 0
-    while 'running' in m_left.state or 'running' in m_right.state:
-        time.sleep(0.1)
-        # should continue if he found the line again
-        found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
-        if found_line < offset_grey:
-            x += 1
-            print(f"found Line: {x}")
-
 def following_line():
     # sensor prep
     # initialising colour sensor
@@ -102,33 +63,46 @@ def following_line():
             # if found_line > offset_grey:
             #    break
 
-    def turn_node(grad):
-        # 2280 ticks ~ 360 degree
+    def turn(degree):
+        # sensor prep
+        # initialising colour sensor
+        cs = ev3.ColorSensor()
+        # using rgb-mode
+        cs.mode = 'RGB-RAW'
+        # assigning ultrasonic sensor to us
+        us = ev3.UltrasonicSensor()
+        # continuous measurement in centimeters
+        us.mode = 'US-DIST-CM'
+        # assigning motors
+        # right motor is on output D
+        m_right = ev3.LargeMotor("outD")
+        # left motor is on output A
+        m_left = ev3.LargeMotor("outA")
+        offset_grey = 200
+        # 1860 * 2 ticks ~ 360 degree
         # opposite wheel directions are twice as fast
         # ticks the wheels should to do
-        m_left.position_sp = (1 / 2 * grad * 1155) / 360
-        m_right.position_sp = -(1 / 2 * grad * 1155) / 360
+        ticks = 1860
+        m_left.position_sp = (1 / 2 * degree * ticks) / 360
+        m_right.position_sp = -(1 / 2 * degree * ticks) / 360
         # ticks per second, up to 1050
-        m_left.speed_sp = 100
-        m_right.speed_sp = 100
+        m_left.speed_sp = 150
+        m_right.speed_sp = 150
         # executing commands
         m_left.command = "run-to-rel-pos"
         m_right.command = "run-to-rel-pos"
-        # print(m_left.state.__repr__())
-        # to calc the degree where how fare it rotated when it detected a line
-        # degree =
-        # for saving the degrees of the lines
+        # print(m_left.state.__repr__()
+        # for knowing where the line was detected
+        degree =
         lines = []
         # giving them time to execute
         while 'running' in m_left.state or 'running' in m_right.state:
             time.sleep(0.1)
-            # search for lines
+            # should continue if he found the line again
             found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
-            if found_line > offset_grey:
-                print(m_left.position())
-                # lines.append(degree)
+            if found_line < offset_grey:
+                lines.append(rotation)
         return lines
-
     def degree_to_celestial_direction(lines):
         pass
 
