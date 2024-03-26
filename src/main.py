@@ -6,13 +6,13 @@ import os
 import paho.mqtt.client as mqtt
 import uuid
 import signal
+import json
 
 from communication import Communication
 from odometry import Odometry
 from planet import Direction, Planet
 
 client = None  # DO NOT EDIT
-
 
 def run():
     # DO NOT CHANGE THESE VARIABLES
@@ -21,7 +21,7 @@ def run():
     # Your script isn't able to close the client after crashing.
     global client
 
-    client_id = 'YOURGROUPID-' + str(uuid.uuid4())  # Replace YOURGROUPID with your group ID
+    client_id = "102" + str(uuid.uuid4())  # Replace YOURGROUPID with your group ID
     client = mqtt.Client(client_id=client_id,  # Unique Client-ID to recognize our program
                          clean_session=True,  # We want a clean session after disconnect or abort/crash
                          protocol=mqtt.MQTTv311  # Define MQTT protocol version
@@ -40,7 +40,10 @@ def run():
     # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
     # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
 
-    print("Hello World!")
+    testplanet = Communication(client, logging.Logger)
+    testplanet.safe_on_message_handler(mqtt.Client, data={"planetName": "Mebi"}, message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    testplanet.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
+    testplanet.on_message(mqtt.Client, data={"planetName": "Mebi"}, message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
 
 
 # DO NOT EDIT
@@ -49,7 +52,7 @@ def signal_handler(sig=None, frame=None, raise_interrupt=True):
         client.disconnect()
     if raise_interrupt:
         raise KeyboardInterrupt()
-
+    pass
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
