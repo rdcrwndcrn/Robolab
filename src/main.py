@@ -8,8 +8,7 @@ import paho.mqtt.client as mqtt
 import uuid
 import signal
 import time
-import robot as rob
-import movement as mov
+import movement as start
 from ev3dev.core import Motor
 from communication import Communication
 from odometry import Odometry
@@ -47,9 +46,10 @@ def run():
 
     # print("Hello World!")
     # mov.node_turn(360)
-    robo = mov.Follower()
-    robo.color_state()
-    robo.follower_state()
+    robo = start.Robot()
+    # robo.start_state()
+    robo.node_state()
+
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):

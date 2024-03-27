@@ -1,15 +1,13 @@
 import time
 from ev3dev import ev3
-import sys
-import select
 
 
-class Follower:
+class Robot:
 
     def __init__(self):  # TODO - variables can be saved in simulator_config_example.json
         # for saving colours
         self.colors = {}
-        self.calibrated_colors = ['black', 'white', 'red', 'blue']
+        self.calibrated_colors = ['black', 'white']
         self.offset_grey = 0
 
         # initialising colour sensor
@@ -32,7 +30,7 @@ class Follower:
         self.lines = []
         # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
         # north is where Rob is looking before and after the scan
-        self.nodes = [0, 0, 0, 0]
+        self.nodes = [False, False, False, False]
 
         # for PID
         # declaring proportional gain
@@ -48,27 +46,31 @@ class Follower:
 
     '''all 3 states are defined in the following 3 methods'''
 
-    # function to get all colour values
-    def color_state(self):
+    # function to get all colour values and start line following
+    def start_state(self):
         # hardcoded for faster testing, will be deleted for exam
         self.colors['black'] = [27.18, 31.75, 23.77]
-        self.colors['white'] = [161.13, 220.01, 147.67]
-        self.colors['red'] = [75.15, 13.61, 13.9]
-        self.colors['blue'] = [14.29, 49.6, 61.2]
+        self.colors['white'] = [208.92, 246.4, 97.24]
 
         # measuring colour and saving them in dict
-        self.measure_colours()
+        # self.measure_colours()
         # calc offset for PID
         self.calc_off()
         # start driving
         self.follower_state()
 
+    # scan while turning back to the start position and save it into an array
     def node_state(self):
-        # move Robo
-        self.move_to_position(100, 100, 300, 300)
-        # scan while turning back to the start position and save it into an array
+        # for testing
+        self.offset_grey = 120
+        # move Robo to node mid
+        # self.move_to_position(100, 100, 300, 300)
+        # scan
+        self.node_scan()
+        # turn to the chosen line to continue
+        self.chose_line()
+        # calculating where the lines are
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
-        self.node_scan(384)
         self.degree_to_celestial_direction()
         # choosing line function
         self.follower_state()
@@ -107,10 +109,9 @@ class Follower:
                 self.last_err = err
                 # so we may save energy
                 time.sleep(0.01)
-        except KeyboardInterrupt:
-            pass
         finally:
-            print('aborting ...')
+            self.motor_prep()
+            print(' aborting ...')
 
     '''functions below this are only helping the first two function'''
 
@@ -151,8 +152,10 @@ class Follower:
         # correct colours with the milan methode
         r, g, b = self.milan_grey(red, green, blue)
         if r - b > 40 and r - g > 30:
+            print(f'found red node: {r, g, b}')
             self.node_state()
         elif b - r > 40:
+            print(f'found blue node: {r, g, b}')
             self.node_state()
 
     # colour calibration function
@@ -170,11 +173,8 @@ class Follower:
         # converting white and black to greyscale / 2.55 to norm it from 0 to 100
         white_grey = self.convert_to_grey(self.colors['white'][0], self.colors['white'][1], self.colors['white'][2])
         black_grey = self.convert_to_grey(self.colors['black'][0], self.colors['black'][1], self.colors['black'][2])
-        print(f'black_grey: {black_grey},  white_grey: {white_grey}')
-
         # calculating offset
         self.offset_grey = (white_grey + black_grey) / 2
-        print('offset_grey: ', self.offset_grey)
 
     def motor_prep(self):
         self.m_left.reset()
@@ -209,6 +209,10 @@ class Follower:
         self.m_right.command = "run-to-rel-pos"
         while self.m_right.is_running and self.m_left.is_running:
             time.sleep(0.1)
+
+    # so Rob can choose a line to continue from Node and move in position there - TODO
+    def chose_line(self):
+        pass
 
     # basic turn function with degrees
     def turn(self, degree):
@@ -249,16 +253,16 @@ class Follower:
         return integral_adjusted
 
     # function for scanning the node and noting motor position if black is found
-    def node_scan(self, degree):
+    def node_scan(self):
         print("Scanning for lines")
         # motor prep so the position attribute from the motors is exact
         self.motor_prep()
         # 1860 * 2 ticks ~ 360 degree
         # opposite wheel directions are twice as fast
-        ticks = 1850
+        ticks = 1840
         # ticks the wheels should to do
-        self.m_left.position_sp = (1 / 2 * degree * ticks) / 360
-        self.m_right.position_sp = -(1 / 2 * degree * ticks) / 360
+        self.m_left.position_sp = 1 / 2 * ticks
+        self.m_right.position_sp = -1 / 2 * ticks
         # ticks per second, up to 1050
         self.m_left.speed_sp = 150
         self.m_right.speed_sp = 150
@@ -270,45 +274,30 @@ class Follower:
         # rotation =
         # giving them time to execute
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
-            time.sleep(0.1)
+            time.sleep(0.01)
+            r, g, b = self.cs.raw
             # should continue if he found the line again
-            found_line = 0.3 * self.cs.raw[0] + 0.59 * self.cs.raw[1] + 0.11 * self.cs.raw[2]
+            found_line = self.convert_to_grey(r, g, b)
             if found_line < self.offset_grey:
-                # print(f'found line at {self.m_left.position}')
                 self.lines.append(self.m_left.position)
 
     # function to turn the motor.position into a compass
     def degree_to_celestial_direction(self):
-        # help arrays
-        north = []
-        east = []
-        south = []
-        west = []
         # the motor position starts at 0 and after the scan it has 1000
         # if line found, then position gets noted in lines
-        # idea: make 4 intervals and if at least one value is in it, there is a line - TODO change to booleans
+        # idea: make 4 intervals and if at least one value is in it, there is a line
+        # set all from previous node to false
+        for x in range(4):
+            self.nodes[x] = False
         for x in self.lines:
-            if x < 175:
-                north.append(x)
-            elif x < 425:
-                east.append(x)
-            elif x < 675:
-                south.append(x)
-            elif x < 925:
-                west.append(x)
-            elif x < 1000:
-                north.append(x)
-        print(f'north: {north}')
-        print(f'east: {east}')
-        print(f'south: {south}')
-        print(f'west: {west}')
-        # if a value is in the compass help arrays, there should be a line, change value in nodes to true (1)
-        if north:
-            self.nodes[0] = 1
-        if east:
-            self.nodes[1] = 1
-        if south:
-            self.nodes[2] = 1
-        if west:
-            self.nodes[3] = 1
+            if x < 170:
+                self.nodes[0] = True
+            elif x < 400:
+                self.nodes[1] = True
+            elif x < 630:
+                self.nodes[2] = True
+            elif x < 860:
+                self.nodes[3] = True
+            elif x < 950:
+                self.nodes[0] = True
         print(self.nodes)
