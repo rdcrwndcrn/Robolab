@@ -5,5 +5,5 @@ class Odometry:
         Initializes odometry module
         """
 
-        # YOUR CODE FOLLOWS (remove pass, please!)
+    def get_attr(self):
         pass

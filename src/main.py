@@ -48,7 +48,7 @@ def run():
     # print("Hello World!")
     # mov.node_turn(360)
     robo = mov.Follower()
-    robo.set_color()
+    robo.color_state()
     robo.follower_state()
 
 # DO NOT EDIT
