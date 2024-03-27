@@ -8,7 +8,7 @@ import uuid
 import ev3dev.ev3 as ev3
 import paho.mqtt.client as mqtt
 
-from communication import Communication
+from communication import Communication, GROUP_ID
 from odometry import Odometry
 from planet import Direction, Planet
 
@@ -19,12 +19,12 @@ client = None  # DO NOT EDIT
 def run():
     # DO NOT CHANGE THESE VARIABLES
     #
-    # The deploy-script uses the variable "client" to stop the
-    # mqtt-client after your program stops or crashes. Your script isn't
-    # able to close the client after crashing.
+    # The deploy-script uses the variable ``client`` to stop the MQTT
+    # client after your program stops or crashes. Your script isn't able
+    # to close the client after crashing.
     global client
 
-    client_id = "102-" + str(uuid.uuid4())
+    client_id = GROUP_ID + "-" + str(uuid.uuid4())
     client = mqtt.Client(
         # Unique Client-ID to recognize our program
         client_id=client_id,
@@ -33,6 +33,7 @@ def run():
         # Define MQTT protocol version
         protocol=mqtt.MQTTv311,
     )
+
     # Setup logging directory and file
     curr_dir = os.path.abspath(os.getcwd())
     if not os.path.exists(curr_dir + "/../logs"):
