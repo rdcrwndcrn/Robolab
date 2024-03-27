@@ -4,7 +4,7 @@ from ev3dev import ev3
 
 class Robot:
 
-    def __init__(self):  # TODO - variables can be saved in simulator_config_example.json
+    def __init__(self):
         # for saving colours
         self.colors = {}
         self.calibrated_colors = ['black', 'white', 'red', 'blue']
@@ -34,11 +34,11 @@ class Robot:
 
         # for PID
         # declaring proportional gain
-        self.k_p = 1.2
+        self.k_p = 0.4
         # integral gain
-        self.k_i = 0 * 10 ** -5
+        self.k_i = 5 * 10 ** -5
         # derivative gain
-        self.k_d = 6 * 10 ** -1
+        self.k_d = 3 * 10 ** -1
         # for summing up the error, hence integral
         self.all_err = []
         # for calc the derivative
@@ -70,7 +70,7 @@ class Robot:
         # reset counter
         self.c = 0
         # move Robo to node mid
-        self.move_to_position(100, 100, 350, 350)
+        self.move_to_position(100, 100, 250, 250)
         # scan
         self.node_scan()
         # calculating where the lines are
@@ -83,7 +83,6 @@ class Robot:
 
     def follower_state(self):
         input("Press enter to start")
-        print(f'offset = {self.offset}')
         self.motor_prep()
         try:
             while True:
@@ -92,7 +91,7 @@ class Robot:
                     self.turn(175)
                 # get rgb values for the iteration we are in
                 r, g, b = self.cs.raw
-                # check if Rob over red or blue                  - TODO does not work correctly
+                # check if Rob over red or blue
                 self.check_for_node(r, g, b)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.convert_to_grey(r, g, b)
@@ -111,15 +110,14 @@ class Robot:
                 # for derivative in next interation
                 self.last_err = err
                 # so we may save energy
-                print(f'actual value: {grey}')
+                # print(f'actual value: {grey}')
                 # print(f'right {new_speed_right} left {new_speed_left}')
                 # print()
                 # reset counters every 100 iteration
-                if self.i % 50 == 0:
+                if self.i % 20 == 0:
                     self.i = 0
                     self.c = 0
                 self.i += 1
-                time.sleep(0.01)
         finally:
             self.motor_prep()
             print('aborting ...')
@@ -150,18 +148,19 @@ class Robot:
     def convert_to_grey(r, g, b):
         return 0.3 * r + 0.59 * g + 0.11 * b
 
-    # check if colour sensor is over red or blue - TODO not working right
+    # check if colour sensor is over red or blue
     def check_for_node(self, r, g, b):
-        # correct colours with the milan methode
         if r > 5 * b and r > 3 * g:
-            print(f'found red node: {r, g, b}')
+            print(f'found red node: {r, g, b}, c = {self.c}')
             self.c += 1
-            if self.c > 30:
+            if self.c > 3:
+                self.turn(7)
                 self.node_state()
         elif 1.9 * b - 0.9 * r > 40:
             self.c += 1
-            print(f'found blue node: {r, g, b}')
-            if self.c > 30:
+            print(f'found blue node: {r, g, b}, c = {self.c}')
+            if self.c > 3:
+                self.turn(3)
                 self.node_state()
 
     # colour calibration function
@@ -187,6 +186,7 @@ class Robot:
         self.m_right.reset()
         self.m_left.stop_action = "brake"
         self.m_right.stop_action = "brake"
+        time.sleep(0.1)
 
     # to change the speed on both wheels
     def speed(self, v_l, v_r):
@@ -259,7 +259,7 @@ class Robot:
             self.all_err.pop(0)
         # calc integral
         integral = sum(self.all_err)
-        # integral * k_i should not be bigger than +-10, that means an additional difference of 10 ticks
+        # integral * k_i should not be bigger than +-10, that means an additional difference of 20 ticks
         integral_adjusted = min(max(integral, -1000000), 1000000)
         return integral_adjusted
 
@@ -285,12 +285,12 @@ class Robot:
         # rotation =
         # giving them time to execute
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
-            time.sleep(0.01)
+            time.sleep(0.005)
             r, g, b = self.cs.raw
             # should continue if he found the line again
             found_line = self.convert_to_grey(r, g, b)
             if found_line < self.offset:
-                self.lines.append(self.m_left.position)
+                self.lines.append(self.m_left.position)  # TODO change it to degrees with Odometrie
 
     # function to turn the motor.position into a compass
     def degree_to_celestial_direction(self):
@@ -298,17 +298,26 @@ class Robot:
         # if line found, then position gets noted in lines
         # idea: make 4 intervals and if at least one value is in it, there is a line
         # set all from previous node to false
+        # print(f'lines found on position: {self.lines}')  # TODO change to global compass Odometrie
         for x in range(4):
             self.nodes[x] = False
         for x in self.lines:
-            if x < 170:
+            if x < 150:
+                # north
                 self.nodes[0] = True
-            elif x < 400:
+            elif x < 380:
+                # east
                 self.nodes[1] = True
-            elif x < 630:
+            elif x < 610:
+                # south
                 self.nodes[2] = True
-            elif x < 860:
+            elif x < 840:
+                # west
                 self.nodes[3] = True
             elif x < 950:
+                # north
                 self.nodes[0] = True
-        print(self.nodes)
+        # print('<150 = north, <380 = east, <610 = south, <840 = west>')
+        # print(self.nodes)
+        # clear list for next node
+        self.lines.clear()
