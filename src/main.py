@@ -1,58 +1,53 @@
 #!/usr/bin/env python3
 
-import ev3dev.ev3 as ev3
 import logging
 import os
-import paho.mqtt.client as mqtt
-import uuid
 import signal
-import json
-import time
+import uuid
+
+import ev3dev.ev3 as ev3
+import paho.mqtt.client as mqtt
 
 from communication import Communication
 from odometry import Odometry
 from planet import Direction, Planet
 
+
 client = None  # DO NOT EDIT
+
 
 def run():
     # DO NOT CHANGE THESE VARIABLES
     #
-    # The deploy-script uses the variable "client" to stop the mqtt-client after your program stops or crashes.
-    # Your script isn't able to close the client after crashing.
+    # The deploy-script uses the variable "client" to stop the
+    # mqtt-client after your program stops or crashes. Your script isn't
+    # able to close the client after crashing.
     global client
 
-    client_id = "102" + str(uuid.uuid4())  # Replace YOURGROUPID with your group ID
-    client = mqtt.Client(client_id=client_id,  # Unique Client-ID to recognize our program
-                         clean_session=True,  # We want a clean session after disconnect or abort/crash
-                         protocol=mqtt.MQTTv311  # Define MQTT protocol version
-                         )
+    client_id = "102-" + str(uuid.uuid4())
+    client = mqtt.Client(
+        # Unique Client-ID to recognize our program
+        client_id=client_id,
+        # We want a clean session after disconnect or abort/crash
+        clean_session=True,
+        # Define MQTT protocol version
+        protocol=mqtt.MQTTv311,
+    )
     # Setup logging directory and file
     curr_dir = os.path.abspath(os.getcwd())
-    if not os.path.exists(curr_dir + '/../logs'):
-        os.makedirs(curr_dir + '/../logs')
-    log_file = curr_dir + '/../logs/project.log'
-    logging.basicConfig(filename=log_file,  # Define log file
-                        level=logging.DEBUG,  # Define default mode
-                        format='%(asctime)s: %(message)s'  # Define default logging format
-                        )
-    logger = logging.getLogger('RoboLab')
+    if not os.path.exists(curr_dir + "/../logs"):
+        os.makedirs(curr_dir + "/../logs")
+    log_file = curr_dir + "/../logs/project.log"
+    logging.basicConfig(
+        filename=log_file,
+        # Define default mode
+        level=logging.DEBUG,
+        # Define default logging format
+        format="%(asctime)s: %(message)s",
+    )
+    logger = logging.getLogger("RoboLab")
 
-    # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
-    # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
-
-    roboter = Communication(client, logger)
-    #roboter.send_message("explorer/102", message={"from": "client", "type": "testPlanet", "payload": {"planetName": "Mebi"}})
-    #time.sleep(3)
-    roboter.send_message("explorer/102",
-                         message={"from": "client", "type":"ready"})
-    time.sleep(3)
-    #roboter.send_message("explorer/102",message={"from": "client", "type": "ready"})
-    #roboter.send_message({"from": "client", "type": "path", "payload": {"startX:"<Xs>,"startY:" <Ys>,"startDirection:<"1">,"endX:"1,"endY:"1,"endDirection:"1,"pathStatus:""free"}})
-
-
-
-
+    # ==================================================================
 
 
 # DO NOT EDIT
@@ -61,9 +56,9 @@ def signal_handler(sig=None, frame=None, raise_interrupt=True):
         client.disconnect()
     if raise_interrupt:
         raise KeyboardInterrupt()
-    pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     try:
         run()
