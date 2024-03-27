@@ -47,8 +47,7 @@ def run():
     # print("Hello World!")
     # mov.node_turn(360)
     robo = start.Robot()
-    # robo.start_state()
-    robo.node_state()
+    robo.start_state()
 
 
 # DO NOT EDIT

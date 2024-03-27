@@ -7,8 +7,8 @@ class Robot:
     def __init__(self):  # TODO - variables can be saved in simulator_config_example.json
         # for saving colours
         self.colors = {}
-        self.calibrated_colors = ['black', 'white']
-        self.offset_grey = 0
+        self.calibrated_colors = ['black', 'white', 'red', 'blue']
+        self.offset = 0
 
         # initialising colour sensor
         self.cs = ev3.ColorSensor()
@@ -34,23 +34,29 @@ class Robot:
 
         # for PID
         # declaring proportional gain
-        self.k_p = 1.5
+        self.k_p = 1.2
         # integral gain
-        self.k_i = 3 * 10 ** - 5
+        self.k_i = 0 * 10 ** -5
         # derivative gain
-        self.k_d = 7 * 10 ** -1
+        self.k_d = 6 * 10 ** -1
         # for summing up the error, hence integral
         self.all_err = []
         # for calc the derivative
         self.last_err = 0
+        # counter for iterations in while
+        self.i = 0
+        # counter for getting node colours
+        self.c = 0
 
     '''all 3 states are defined in the following 3 methods'''
 
     # function to get all colour values and start line following
     def start_state(self):
         # hardcoded for faster testing, will be deleted for exam
-        self.colors['black'] = [27.18, 31.75, 23.77]
-        self.colors['white'] = [208.92, 246.4, 97.24]
+        self.colors['black'] = [42.75, 47.78, 12.14]
+        self.colors['white'] = [298.72, 320.22, 107.2]
+        self.colors['red'] = [205.74, 54.37, 12.71]
+        self.colors['blue'] = [57.61, 127.47, 56.2]
 
         # measuring colour and saving them in dict
         # self.measure_colours()
@@ -61,40 +67,37 @@ class Robot:
 
     # scan while turning back to the start position and save it into an array
     def node_state(self):
-        # for testing
-        self.offset_grey = 120
+        # reset counter
+        self.c = 0
         # move Robo to node mid
-        # self.move_to_position(100, 100, 300, 300)
+        self.move_to_position(100, 100, 350, 350)
         # scan
         self.node_scan()
-        # turn to the chosen line to continue
-        self.chose_line()
         # calculating where the lines are
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
         self.degree_to_celestial_direction()
-        # choosing line function
+        # turn to the chosen line to continue
+        self.choose_line()
+        # continue following
         self.follower_state()
 
     def follower_state(self):
-        # so we can control the movement of Rob
         input("Press enter to start")
+        print(f'offset = {self.offset}')
         self.motor_prep()
-        # for stopping the process for testing
-        print("Press enter to stop")
-
         try:
             while True:
-                # turn if bottle is less than 150 mm before Robo - TODO test if 15cm is too much
+                # turn if bottle is less than 150 mm before Rob - TODO test if 15cm is too much
                 if self.us.value() < 150:
                     self.turn(175)
                 # get rgb values for the iteration we are in
                 r, g, b = self.cs.raw
-                # check if Rob over red or blue
+                # check if Rob over red or blue                  - TODO does not work correctly
                 self.check_for_node(r, g, b)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.convert_to_grey(r, g, b)
                 # calculating error
-                err = grey - self.offset_grey
+                err = grey - self.offset
                 # calc integral
                 integral = self.calc_int(err)
                 # calc derivative
@@ -108,10 +111,18 @@ class Robot:
                 # for derivative in next interation
                 self.last_err = err
                 # so we may save energy
+                print(f'actual value: {grey}')
+                # print(f'right {new_speed_right} left {new_speed_left}')
+                # print()
+                # reset counters every 100 iteration
+                if self.i % 50 == 0:
+                    self.i = 0
+                    self.c = 0
+                self.i += 1
                 time.sleep(0.01)
         finally:
             self.motor_prep()
-            print(' aborting ...')
+            print('aborting ...')
 
     '''functions below this are only helping the first two function'''
 
@@ -122,24 +133,16 @@ class Robot:
         avg_r = 0
         avg_g = 0
         avg_b = 0
-
         # measuring 100 times
         for i in range(100):
             red, green, blue = self.cs.raw
             avg_r += red
             avg_g += green
             avg_b += blue
-
         avg_r /= 100
         avg_g /= 100
         avg_b /= 100
         return [avg_r, avg_g, avg_b]
-
-    # rgb to grey
-    # calibrated by Milan's method for colour sensor 1, more robust with blue and red detection
-    @staticmethod
-    def milan_grey(r, g, b):
-        return 0.9 * r, 0.75 * g, 1.9 * b
 
     # rgb to grey
     # after greyscale model optimised for human eyes
@@ -147,16 +150,19 @@ class Robot:
     def convert_to_grey(r, g, b):
         return 0.3 * r + 0.59 * g + 0.11 * b
 
-    # check if colour sensor is over red or blue
-    def check_for_node(self, red, green, blue):
+    # check if colour sensor is over red or blue - TODO not working right
+    def check_for_node(self, r, g, b):
         # correct colours with the milan methode
-        r, g, b = self.milan_grey(red, green, blue)
-        if r - b > 40 and r - g > 30:
+        if r > 5 * b and r > 3 * g:
             print(f'found red node: {r, g, b}')
-            self.node_state()
-        elif b - r > 40:
+            self.c += 1
+            if self.c > 30:
+                self.node_state()
+        elif 1.9 * b - 0.9 * r > 40:
+            self.c += 1
             print(f'found blue node: {r, g, b}')
-            self.node_state()
+            if self.c > 30:
+                self.node_state()
 
     # colour calibration function
     def measure_colours(self):
@@ -174,7 +180,7 @@ class Robot:
         white_grey = self.convert_to_grey(self.colors['white'][0], self.colors['white'][1], self.colors['white'][2])
         black_grey = self.convert_to_grey(self.colors['black'][0], self.colors['black'][1], self.colors['black'][2])
         # calculating offset
-        self.offset_grey = (white_grey + black_grey) / 2
+        self.offset = (white_grey + black_grey) / 2
 
     def motor_prep(self):
         self.m_left.reset()
@@ -210,9 +216,14 @@ class Robot:
         while self.m_right.is_running and self.m_left.is_running:
             time.sleep(0.1)
 
-    # so Rob can choose a line to continue from Node and move in position there - TODO
-    def chose_line(self):
-        pass
+    # so Rob can choose a line to continue from Node and move in position there
+    def choose_line(self):
+        # for knowing which one to continue on
+        line = int(input('Choose the path in degree'))  # TODO - add connection to Planet
+        # turn to the path
+        self.turn(line)
+        # follow it
+        self.follower_state()
 
     # basic turn function with degrees
     def turn(self, degree):
@@ -235,7 +246,7 @@ class Robot:
             time.sleep(0.1)
             # should continue if he found the line again
             # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
-            # if found_line > offset_grey:
+            # if found_line > offset:
             #    break
 
     # function for calculating the integral
@@ -278,7 +289,7 @@ class Robot:
             r, g, b = self.cs.raw
             # should continue if he found the line again
             found_line = self.convert_to_grey(r, g, b)
-            if found_line < self.offset_grey:
+            if found_line < self.offset:
                 self.lines.append(self.m_left.position)
 
     # function to turn the motor.position into a compass
