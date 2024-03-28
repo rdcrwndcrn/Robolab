@@ -16,6 +16,8 @@ class Robot:
         self.client = client
         self.logger = logger
         # Communication can only start at the first supply station.
+        # The value `None` implies no supply station has been reached so
+        # far and is changed at the first node.
         self.communication = None
         # for saving colours
         self.colors = {}
@@ -378,6 +380,13 @@ class Robot:
         return x, y, global_direction_change
 
     def open_communication(self):
+        """Set up message handlers, send and set communication timeout.
+
+        At the first node, set up communication and submit
+        `ClientMessageType.READY` message, at all other nodes send
+        `ClientMessageType.PATH` message including current estimated
+        node information.
+        """
         # A wrapper to ensure `self.reset_communication_timeout` is called
         # at the arrival of any new message.
         def timeout_wrapper(handler):
@@ -415,10 +424,11 @@ class Robot:
         self.reset_communication_timeout()
 
     def reset_communication_timeout(self):
-        # Set a 3 second timeout.
+        """Set a 3 second timeout signalling the communication end."""
         self.timeout = monotonic_ns() + 3_000_000    # + 3 s
 
     def wait_for_communication_timeout(self):
+        """Wait until `self.timeout` is reached and reset message handlers."""
         while monotonic_ns() < self.timeout:
             sleep(0.1)
 
