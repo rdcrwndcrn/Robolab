@@ -1,128 +1,323 @@
-import ev3dev.ev3 as ev3
-import sys
-import select
 import time
+from ev3dev import ev3
 
 
-# initialising touch sensor
-# ts = ev3.TouchSensor()
-# using speaker
-# sound = ev3.Sound()
-# sound.speak('Hello Robolab!')
+class Robot:
 
-def following_line():
-    # initialising colour sensor
-    cs = ev3.ColorSensor()
-    # using rgb-mode
-    cs.mode = 'RGB-RAW'
+    def __init__(self):
+        # for saving colours
+        self.colors = {}
+        self.calibrated_colors = ['black', 'white', 'red', 'blue']
+        self.offset = 0
 
-    # preparing motors
-    # right motor is on output C
-    m_right = ev3.LargeMotor("outC")
-    # left motor is on output A
-    m_left = ev3.LargeMotor("outA")
+        # initialising colour sensor
+        self.cs = ev3.ColorSensor()
+        # using rgb-mode
+        self.cs.mode = 'RGB-RAW'
+        # assigning ultrasonic sensor to us
+        self.us = ev3.UltrasonicSensor()
+        # continuous measurement in centimeters
+        self.us.mode = 'US-DIST-CM'
+        # assigning motors
+        # right motor is on output D
+        self.m_right = ev3.LargeMotor("outD")
+        # left motor is on output A
+        self.m_left = ev3.LargeMotor("outA")
+        # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
+        self.t_p = 220
 
-    # function for preparing the motors
-    def motor_prep():
-        # IDK what these are doing, found them in the documentation
-        m_left.reset()
-        m_right.reset()
-        m_left.stop_action = "brake"
-        m_right.stop_action = "brake"
+        # for node scanning
+        self.lines = []
+        # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
+        # north is where Rob is looking before and after the scan
+        self.nodes = [False, False, False, False]
 
-    # function for changing speed on one side
-    def change_speed(side, v):
-        if side == "l":
-            # speed for the motors on a sale 0 - 100
-            m_left.duty_cycle_sp = v
-            m_left.command = "run-direct"
-        elif side == "r":
-            m_right.duty_cycle_sp = v
-            m_right.command = "run-direct"
+        # for PID
+        # declaring proportional gain
+        self.k_p = 8 * 10 ** -1
+        # integral gain
+        self.k_i = 5 * 10 ** -5
+        # derivative gain
+        self.k_d = 3 * 10 ** -1
+        # for summing up the error, hence integral
+        self.all_err = []
+        # for calc the derivative
+        self.last_err = 0
+        # counter for iterations in while
+        self.i = 0
+        # counter for getting node colours
+        self.c = 0
 
-    # changing speed on both wheels
-    def speed(v_l, v_r):
-        # motor_prep()
-        # testing speed boundary's and adjusting speed if necessary
-        v_l = max(min(v_l, 100), -100)
-        v_r = max(min(v_r, 100), -100)
-        # assigning speed
-        m_left.duty_cycle_sp = v_l
-        m_right.duty_cycle_sp = v_r
-        # executing speed
-        m_left.command = "run-direct"
-        m_right.command = "run-direct"
+    '''all 3 states are defined in the following 3 methods'''
 
-    def colour_calibration():
+    # function to get all colour values and start line following
+    def start_state(self):
+        # hardcoded for faster testing, will be deleted for exam
+        self.colors['black'] = [42.75, 47.78, 12.14]
+        self.colors['white'] = [298.72, 320.22, 107.2]
+        self.colors['red'] = [205.74, 54.37, 12.71]
+        self.colors['blue'] = [57.61, 127.47, 56.2]
+
+        # measuring colour and saving them in dict
+        # self.measure_colours()
+        # calc offset for PID
+        self.calc_off()
+        # start driving
+        self.follower_state()
+
+    # scan while turning back to the start position and save it into an array
+    def node_state(self):
+        # reset counter
+        self.c = 0
+        # move Robo to node mid
+        self.move_to_position(220, 220, 260, 260)
+        # scan
+        self.node_scan()
+        # calculating where the lines are
+        # array: Nord, East, South, West, from the positioning of the robot, not the card yet
+        self.degree_to_celestial_direction()
+        # turn to the chosen line to continue
+        self.choose_line()
+        # continue following
+        self.follower_state()
+
+    def follower_state(self):
+        input("Press enter to start")
+        self.motor_prep()
+        try:
+            while True:
+                # turn if bottle is less than 150 mm before Rob - TODO test if 15cm is too much
+                if self.us.value() < 150:
+                    self.turn(175)
+                # get rgb values for the iteration we are in
+                r, g, b = self.cs.raw
+                # check if Rob over red or blue
+                self.check_for_node(r, g, b)
+                # converting to greyscale / 2.55 to norm it from 0 to 100
+                grey = self.convert_to_grey(r, g, b)
+                # calculating error
+                err = grey - self.offset
+                # calc integral
+                integral = self.calc_int(err)
+                # calc derivative
+                derivative = err - self.last_err
+                # calc adjustments for little correction turns of wheels
+                turns = self.k_p * err + self.k_i * integral + self.k_d * derivative
+                # continuing with adjusted speed
+                new_speed_left = self.t_p + turns
+                new_speed_right = self.t_p - turns
+                self.speed(new_speed_left, new_speed_right)
+                # for derivative in next interation
+                self.last_err = err
+                # so we may save energy
+                # print(f'actual value: {grey}')
+                # print(f'right {new_speed_right} left {new_speed_left}')
+                # print()
+                # reset counters every 100 iteration
+                if self.i % 20 == 0:
+                    self.i = 0
+                    self.c = 0
+                self.i += 1
+        finally:
+            self.motor_prep()
+            print('aborting ...')
+
+    '''functions below this are only helping the first two function'''
+
+    # eliminate short period deviation in colour sensor
+    # to help with measuring the colors in the colors dict
+    def calibration(self):
         # average rgb
         avg_r = 0
         avg_g = 0
         avg_b = 0
-
         # measuring 100 times
-        for x in range(100):
-            r, g, b = cs.raw
-            avg_r += r
-            avg_g += g
-            avg_b += b
-
+        for i in range(100):
+            red, green, blue = self.cs.raw
+            avg_r += red
+            avg_g += green
+            avg_b += blue
         avg_r /= 100
         avg_g /= 100
         avg_b /= 100
         return [avg_r, avg_g, avg_b]
 
-    # for saving the calibrated colours
-    colors = {}
-    calibrated_colors = ['red', 'blue', 'black', 'white']
+    # rgb to grey
+    # after greyscale model optimised for human eyes
+    @staticmethod
+    def convert_to_grey(r, g, b):
+        return 0.3 * r + 0.59 * g + 0.11 * b
 
-    colors['red'] = [182.73, 64.03, 22.98]
-    colors['blue'] = [91.13, 222.81, 108.92]
-    colors['black'] = [29.33, 51.74, 16.13]
-    colors['white'] = [110.05, 102.14, 32.0]
+    # check if colour sensor is over red or blue
+    def check_for_node(self, r, g, b):
+        if r > 5 * b and r > 3 * g:
+            # print(f'found red node: {r, g, b}, c = {self.c}')
+            self.c += 1
+            if self.c > 3:
+                self.turn(7)
+                self.node_state()
+        elif 1.9 * b - 0.9 * r > 40:
+            self.c += 1
+            # print(f'found blue node: {r, g, b}, c = {self.c}')
+            if self.c > 3:
+                self.turn(4)
+                self.node_state()
 
-    # for the calculation of turn
-    # declaring proportionality constant - does still need adjusting
-    k_p = 1
-    # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-    white_grey = (0.3 * colors['white'][0] + 0.59 * colors['white'][1] + 0.11 * colors['white'][2]) / 2.55
-    black_grey = (0.3 * colors['black'][0] + 0.59 * colors['black'][1] + 0.11 * colors['black'][2]) / 2.55
-    # calculating offset -6 for sensor deviation minimization in Döbeln
-    offset_grey = white_grey - black_grey - 6
-    # initialising t_p, well use it with the meaning of x% of the possible wheel speed, here its 50%
-    t_p = 30
-    # print("offset: ", offset_grey)
+    # colour calibration function
+    def measure_colours(self):
+        for x in self.calibrated_colors:
+            # wait, so we can move Robo and know which colour is next
+            input(f"Press enter to read {x}.")
+            # getting and saving rgb-values
+            self.colors[x] = self.calibration()
+            print(self.colors[x])
 
-    # so we can move Robo again
-    input("Press enter to start")
-    motor_prep()
+    # for calculating the offset
+    def calc_off(self):
+        # colour calc to calc the error and use that for PID
+        # converting white and black to greyscale / 2.55 to norm it from 0 to 100
+        white_grey = self.convert_to_grey(self.colors['white'][0], self.colors['white'][1], self.colors['white'][2])
+        black_grey = self.convert_to_grey(self.colors['black'][0], self.colors['black'][1], self.colors['black'][2])
+        # calculating offset
+        self.offset = (white_grey + black_grey) / 2
 
-    # for stopping the process for testing
-    print("Press enter to stop")
+    def motor_prep(self):
+        self.m_left.reset()
+        self.m_right.reset()
+        self.m_left.stop_action = "brake"
+        self.m_right.stop_action = "brake"
+        time.sleep(0.1)
 
-    while True:
-        # this stops the loop if I press enter, IDK how it works
-        if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-            line = input()
-            if line == '':
-                break
-        else:
-            # calculating turn_speed and if turning is necessary
-            # converting to greyscale / 2.55 to norm it from 0 to 100
-            light_grey = (0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]) / 2.55
-            print("actual reading: ", light_grey)
+    # to change the speed on both wheels
+    def speed(self, v_l, v_r):
+        # testing speed boundary's and adjusting speed if necessary
+        v_l = max(min(v_l, 1000), -1000)
+        v_r = max(min(v_r, 1000), -1000)
+        # assigning speed
+        self.m_left.speed_sp = v_l
+        self.m_right.speed_sp = v_r
+        # executing commands
+        self.m_left.command = "run-forever"
+        self.m_right.command = "run-forever"
 
-            # calculating error, should be between 0 and 100
-            err = light_grey - offset_grey
-            print("error: ", err)
+    # move to position
+    def move_to_position(self, v_l, v_r, s_l, s_r):
+        self.motor_prep()
+        # try to get into the mit of the node
+        # to align the colour sensor
+        self.m_left.position_sp = s_l
+        self.m_right.position_sp = s_r
+        # ticks per second, up to 1050
+        self.m_left.speed_sp = v_l
+        self.m_right.speed_sp = v_r
+        # executing commands
+        self.m_left.command = "run-to-rel-pos"
+        self.m_right.command = "run-to-rel-pos"
+        while self.m_right.is_running and self.m_left.is_running:
+            time.sleep(0.1)
 
-            # calculating turn of the wheels
-            turn = k_p * err
-            # print("turn: ", turn)
-            # driving with adjusted speed
-            speed_left = t_p + turn
-            speed_right = t_p - turn
+    # so Rob can choose a line to continue from Node and move in position there
+    def choose_line(self):
+        # for knowing which one to continue on
+        line = int(input('Choose the path in degree'))  # TODO - add connection to Planet
+        # turn to the path
+        self.turn(line)
+        # follow it
+        self.follower_state()
 
-            print("new speed left: ", speed_left)
-            print("new speed right: ", speed_right)
-            # speed(speed_left, speed_right)
-            time.sleep(4)
+    # basic turn function with degrees
+    def turn(self, degree):
+        self.motor_prep()
+        # opposite wheel directions are twice as fast
+        # 1860 * 2 ticks ~ 360 degree
+        # ticks the wheels should to do
+        ticks = 1860
+        self.m_left.position_sp = (1 / 2 * degree * ticks) / 360
+        self.m_right.position_sp = -(1 / 2 * degree * ticks) / 360
+        # ticks per second, up to 1050
+        self.m_left.speed_sp = 300
+        self.m_right.speed_sp = 300
+        # executing commands
+        self.m_left.command = "run-to-rel-pos"
+        self.m_right.command = "run-to-rel-pos"
+        # print(m_left.state.__repr__())
+        # giving them time to execute
+        while self.m_right.is_running and self.m_left.is_running:
+            time.sleep(0.1)
+            # should continue if he found the line again
+            # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
+            # if found_line > offset:
+            #    break
+
+    # function for calculating the integral
+    def calc_int(self, error):
+        # add err to integral array
+        self.all_err.append(error)
+        # check if integral has to many values
+        if len(self.all_err) > 2 * 10 ** 2:
+            # remove the first (first in first out)
+            self.all_err.pop(0)
+        # calc integral
+        integral = sum(self.all_err)
+        # integral * k_i should not be bigger than +-10, that means an additional difference of 20 ticks
+        integral_adjusted = min(max(integral, -1000000), 1000000)
+        return integral_adjusted
+
+    # function for scanning the node and noting motor position if black is found
+    def node_scan(self):
+        print("Scanning for lines")
+        # motor prep so the position attribute from the motors is exact
+        self.motor_prep()
+        # 1860 * 2 ticks ~ 360 degree
+        # opposite wheel directions are twice as fast
+        ticks = 1840
+        # ticks the wheels should to do
+        self.m_left.position_sp = 1 / 2 * ticks
+        self.m_right.position_sp = -1 / 2 * ticks
+        # ticks per second, up to 1050
+        self.m_left.speed_sp = 220
+        self.m_right.speed_sp = 220
+        # executing commands
+        self.m_left.command = "run-to-rel-pos"
+        self.m_right.command = "run-to-rel-pos"
+        # print(m_left.state.__repr__()
+        # for knowing where the line was detected
+        # rotation =
+        # giving them time to execute
+        while 'running' in self.m_left.state or 'running' in self.m_right.state:
+            time.sleep(0.005)
+            r, g, b = self.cs.raw
+            # should continue if he found the line again
+            found_line = self.convert_to_grey(r, g, b)
+            if found_line < self.offset:
+                self.lines.append(self.m_left.position)  # TODO change it to degrees with Odometrie
+
+    # function to turn the motor.position into a compass
+    def degree_to_celestial_direction(self):
+        # the motor position starts at 0 and after the scan it has 1000
+        # if line found, then position gets noted in lines
+        # idea: make 4 intervals and if at least one value is in it, there is a line
+        # set all from previous node to false
+        # print(f'lines found on position: {self.lines}')  # TODO change to global compass Odometrie
+        for x in range(4):
+            self.nodes[x] = False
+        for x in self.lines:
+            if x < 150:
+                # north
+                self.nodes[0] = True
+            elif x < 380:
+                # east
+                self.nodes[1] = True
+            elif x < 610:
+                # south
+                self.nodes[2] = True
+            elif x < 840:
+                # west
+                self.nodes[3] = True
+            elif x < 950:
+                # north
+                self.nodes[0] = True
+        # print('<150 = north, <380 = east, <610 = south, <840 = west>')
+        print(self.nodes)
+        # clear list for next node
+        self.lines.clear()
