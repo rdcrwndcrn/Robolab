@@ -55,7 +55,7 @@ class Robot:
         # start orientation
         self.odo_last_node_orientation = 0
         # wheels distance in cm TODO - measuring a
-        self.a = (7.6 * 360)/3.2 * math.pi
+        self.a = (7.6 * 360) / (3.2 * math.pi)
 
     '''all 3 states are defined in the following 3 methods'''
 
@@ -98,6 +98,7 @@ class Robot:
         self.follower_state()
         # reset odo
         self.odo_motor_positions.clear()
+        self.motor_prep()
 
     def follower_state(self):
         input("Press enter to start")
@@ -344,23 +345,19 @@ class Robot:
         self.lines.clear()
 
     def odometry(self):
-        last_alpha = 0
         x = 0
         y = 0
-        alpha = 0
+        global_direction_change = 0
         for i, (left, right) in enumerate(self.odo_motor_positions[1:]):
             d_l = left - self.odo_motor_positions[i - 1][0]
             d_r = right - self.odo_motor_positions[i - 1][1]
             if d_r == d_l:
-                angle = 0
+                alpha = 0
                 s = d_r
             else:
-                angle = (d_r - d_l) / self.a
-                s = (d_r + d_l) / angle * math.sin(angle / 2)
-            a = s * math.sin(angle / 2)
-            b = s * math.cos(angle / 2)
-            y += b * math.cos(alpha) + a * math.sin(alpha)
-            x += a * math.cos(alpha)
-            alpha += angle
-            last_alpha = angle
-        return x, y, alpha
+                alpha = (d_r - d_l) / self.a
+                s = (d_r + d_l) / alpha * math.sin(alpha / 2)
+            x += s * math.sin(alpha / 2 + global_direction_change)
+            y += s * math.cos(alpha / 2 + global_direction_change)
+            global_direction_change += alpha
+        return x, y, global_direction_change
