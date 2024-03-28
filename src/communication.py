@@ -4,14 +4,19 @@
 import ssl
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, asdict
-from enum import StrEnum, unique
 from json import dumps, loads
 from logging import Logger
-from types import NoneType
-from typing import Any, Final
+from typing import Any, Final, Union
+
 from paho.mqtt.client import Client, MQTTMessage
+
+# Using Python 3.12 library version instead of Python 3.9 in order to
+# use `StrEnum`.
+from enum import StrEnum, unique
 from planet import Direction
 
+
+NoneType = type(None)
 
 # The MQTT quality of service used for all publishing/subscribing.
 QOS: Final = 2
@@ -159,7 +164,21 @@ class Communication:
 
         # Here the class user can specify the callbacks which are
         # executed when the specified message is received.
-        self.message_handlers: Mapping[ServerMessageType, Callable] = {}
+        # The callback takes --- if the message type is recognized and in
+        # `ServerMessageType` --- the corresponding record type, else it
+        # should take whatever the server sends as payload in this message.
+        self.message_handlers: (Mapping[
+            Union[ServerMessageType, str],
+            Callable[
+                [
+                    Union[
+                        PlanetRecord, WeightedPathRecord, DirectionRecord,
+                        TargetRecord, MessageRecord, Any,
+                    ]
+                ],
+                Any,
+            ],
+        ]) = {}
 
         self._client.enable_logger()    # DEBUG
 
@@ -182,20 +201,36 @@ class Communication:
 
         message_type = payload["type"]
 
+        # A function taking anything and doing nothing.
+        # Used in the dictionary search below as default values in case the
+        # searched key wasn't found to avoid if-else branching.
         def _noop(*args, **kwargs): pass
 
+        # Prepends our `_handle_planet_message` handler in order to be executed
+        # before the user specified callback (or, if no callback, the `_noop`)
+        # is executed, in case the `ServerMessageType.PLANET` message was
+        # received.
         def _wrapped_planet_callback(*args, **kwargs):
             self._handle_planet_message(*args, **kwargs)
             return self.message_handlers.get(
                 ServerMessageType.PLANET, _noop
             )(*args, **kwargs)
 
+        # Find the user specified callback for the given message type
+        # (in case of `ServerMessageType.PLANET`, execute our handler before
+        # the user callback to do additional communication handling)
+        # and call it with the record type corresponding to the message type
+        # filled with the actual values, or just with the unchanged message
+        # payload in case of an unknown message type.
         (self.message_handlers | {
             # Handle planet messages specially.
             ServerMessageType.PLANET: _wrapped_planet_callback,
         }).get(message_type, _noop)(
             SERVER_MESSAGE_RECORD_TYPES.get(
                 message_type,
+                # A dummy function to pass the raw message payload to
+                # the user callback in case the received message type is
+                # not in `ServerMessageType`.
                 lambda **record: record
             )(**payload["payload"])
         )
@@ -209,7 +244,8 @@ class Communication:
     def send_message_type(
         self,
         message_type: ClientMessageType,
-        record: StartRecord | PathRecord | MessageRecord | NoneType = None
+        # NOTE: Type union operator `|` not supported in Python 3.9.
+        record: Union[StartRecord, PathRecord, MessageRecord, NoneType] = None
     ):
         """Send the given message `record` of `message_type` to the right topic.
 
@@ -240,7 +276,6 @@ class Communication:
                 {} if record is None else {"payload": asdict(record)}
             )
         )
-
 
     # DO NOT EDIT THE METHOD SIGNATURE
     #
