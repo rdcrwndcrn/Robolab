@@ -3,10 +3,11 @@
 # Attention: Do not import the ev3dev.ev3 module in this file
 import ssl
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from enum import StrEnum, unique
 from json import dumps, loads
 from logging import Logger
+from types import NoneType
 from typing import Any, Final
 
 from paho.mqtt.client import Client, MQTTMessage
@@ -30,19 +31,27 @@ TOPIC_PLANET_TEMPLATE: Final = "planet/{}/" + GROUP_ID
 
 
 @unique
-class MessageTypes(StrEnum):
-    """The types of messages that are recognized when sent or received."""
-    READY = "ready"
+class ServerMessageType(StrEnum):
+    """The types of messages that are recognized when received from server."""
     PLANET = "planet"
     PATH = "path"
     PATH_UNVEILED = "pathUnveiled"
     PATH_SELECT = "pathSelect"
     TARGET = "target"
-    TARGET_REACHED = "targetReached"
-    EXPLORATION_COMPLETED = "explorationCompleted"
     DONE = "done"
 
 
+@unique
+class ClientMessageType(StrEnum):
+    """The valid types of messages to be sent."""
+    READY = "ready"
+    PATH = "path"
+    PATH_SELECT = "pathSelect"
+    TARGET_REACHED = "targetReached"
+    EXPLORATION_COMPLETED = "explorationCompleted"
+
+
+@unique
 class PathStatus(StrEnum):
     """The possible values for the path status."""
     BLOCKED = "blocked"
@@ -118,12 +127,22 @@ class TargetRecord:
 # The payload record types corresponding to the message types received
 # from the server.
 SERVER_MESSAGE_RECORD_TYPES = {
-    MessageTypes.PLANET: PlanetRecord,
-    MessageTypes.PATH: WeightedPathRecord,
-    MessageTypes.PATH_SELECT: DirectionRecord,
-    MessageTypes.PATH_UNVEILED: WeightedPathRecord,
-    MessageTypes.TARGET: TargetRecord,
-    MessageTypes.DONE: MessageRecord,
+    ServerMessageType.PLANET: PlanetRecord,
+    ServerMessageType.PATH: WeightedPathRecord,
+    ServerMessageType.PATH_SELECT: DirectionRecord,
+    ServerMessageType.PATH_UNVEILED: WeightedPathRecord,
+    ServerMessageType.TARGET: TargetRecord,
+    ServerMessageType.DONE: MessageRecord,
+}
+
+# The payload record types corresponding to the message types received
+# sent by the client.
+CLIENT_MESSAGE_RECORD_TYPES = {
+    ClientMessageType.READY: NoneType,
+    ClientMessageType.PATH: PathRecord,
+    ClientMessageType.PATH_SELECT: StartRecord,
+    ClientMessageType.TARGET_REACHED: MessageRecord,
+    ClientMessageType.EXPLORATION_COMPLETED: MessageRecord,
 }
 
 
@@ -142,7 +161,7 @@ class Communication:
 
         # Here the class user can specify the callbacks which are
         # executed when the specified message is received.
-        self.message_handlers: Mapping[MessageTypes, Callable] = {}
+        self.message_handlers: Mapping[ServerMessageType, Callable] = {}
 
         self._client.enable_logger()    # DEBUG
 
@@ -156,7 +175,7 @@ class Communication:
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def on_message(self, client: Client, data: Any, message: MQTTMessage):
-        """Callback to handle if any message arrived."""
+        """Callback to handle if any message from the server arrived."""
         payload = loads(message.payload.decode("utf-8"))
         self._logger.debug(dumps(payload, indent=2))
         if payload["from"] != "server":
@@ -170,12 +189,12 @@ class Communication:
         def _wrapped_planet_callback(*args, **kwargs):
             self._handle_planet_message(*args, **kwargs)
             return self.message_handlers.get(
-                MessageTypes.PLANET, _noop
+                ServerMessageType.PLANET, _noop
             )(*args, **kwargs)
 
         (self.message_handlers | {
             # Handle planet messages specially.
-            MessageTypes.PLANET: _wrapped_planet_callback,
+            ServerMessageType.PLANET: _wrapped_planet_callback,
         }).get(message_type, _noop)(
             SERVER_MESSAGE_RECORD_TYPES.get(
                 message_type,
@@ -188,6 +207,41 @@ class Communication:
         # This is assumed to happen only once.
         self._topic_planet = TOPIC_PLANET_TEMPLATE.format(planet_record.planetName)
         self._client.subscribe(self._topic_planet, QOS)
+
+    def send_message_type(
+        self,
+        message_type: ClientMessageType,
+        record: StartRecord | PathRecord | MessageRecord | NoneType = None
+    ):
+        """Send the given message `record` of `message_type` to the right topic.
+
+        If `record` is not an instance of the record type mapped by
+        `CLIENT_MESSAGE_RECORD_TYPES`, no message will be sent; the call will
+        be ignored.
+        """
+        if not isinstance(record, CLIENT_MESSAGE_RECORD_TYPES[message_type]):
+            self._logger.error(
+                f"Invalid {record = } for {message_type = } in"
+                f" `{self.__class__.__name__}.send_message_type`"
+            )
+            return
+
+        if message_type in (
+            ClientMessageType.READY,
+            ClientMessageType.TARGET_REACHED,
+            ClientMessageType.EXPLORATION_COMPLETED
+        ):
+            topic = TOPIC_EXPLORER
+        else:
+            topic = self._topic_planet
+
+        self.send_message(topic, {
+            "from": "client",
+            "type": message_type,
+        } | (
+            {"payload": asdict(record)} if record is not None else {})
+        )
+
 
     # DO NOT EDIT THE METHOD SIGNATURE
     #
