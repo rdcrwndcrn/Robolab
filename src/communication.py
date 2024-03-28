@@ -115,6 +115,18 @@ class TargetRecord:
     targetY: int
 
 
+# The payload record types corresponding to the message types received
+# from the server.
+SERVER_MESSAGE_RECORD_TYPES = {
+    MessageTypes.PLANET: PlanetRecord,
+    MessageTypes.PATH: WeightedPathRecord,
+    MessageTypes.PATH_SELECT: DirectionRecord,
+    MessageTypes.PATH_UNVEILED: WeightedPathRecord,
+    MessageTypes.TARGET: TargetRecord,
+    MessageTypes.DONE: MessageRecord,
+}
+
+
 class Communication:
     """MQTT communication client for a planet discovery robot."""
 
@@ -130,7 +142,7 @@ class Communication:
 
         # Here the class user can specify the callbacks which are
         # executed when the specified message is received.
-        self.message_type_handlers: Mapping[MessageTypes, Callable[..., Any]] = {}
+        self.message_handlers: Mapping[MessageTypes, Callable] = {}
 
         self._client.enable_logger()    # DEBUG
 
@@ -153,43 +165,29 @@ class Communication:
 
         message_type = payload["type"]
 
-        self.message_type_handlers.get(
-            message_type, lambda *args, **kwargs: ...
-        )(
-            {
-                MessageTypes.PLANET: self._handle_planet_message,
-                MessageTypes.PATH: self._handle_path_message,
-                MessageTypes.PATH_SELECT: self._handle_path_select_message,
-                MessageTypes.PATH_UNVEILED: self._handle_path_unveiled_message,
-                MessageTypes.TARGET: self._handle_target_message,
-                MessageTypes.DONE: self._handle_done_message,
-            }.get(
+        def _noop(*args, **kwargs): pass
+
+        def _wrapped_planet_callback(*args, **kwargs):
+            self._handle_planet_message(*args, **kwargs)
+            return self.message_handlers.get(
+                MessageTypes.PLANET, _noop
+            )(*args, **kwargs)
+
+        (self.message_handlers | {
+            # Handle planet messages specially.
+            MessageTypes.PLANET: _wrapped_planet_callback,
+        }).get(message_type, _noop)(
+            SERVER_MESSAGE_RECORD_TYPES.get(
                 message_type,
-                lambda payload: payload,
-            )(payload["payload"])
+                lambda **record: record
+            )(**payload["payload"])
         )
 
-    def _handle_planet_message(self, payload: Any) -> PlanetRecord:
+    def _handle_planet_message(self, planet_record: PlanetRecord):
         # Ready message sent, now receiving planet name.
-        self._topic_planet = TOPIC_PLANET_TEMPLATE.format(payload["planetName"])
+        # This is assumed to happen only once.
+        self._topic_planet = TOPIC_PLANET_TEMPLATE.format(planet_record.planetName)
         self._client.subscribe(self._topic_planet, QOS)
-
-        return PlanetRecord(**payload)
-
-    def _handle_path_message(self, payload: Any) -> WeightedPathRecord:
-        return WeightedPathRecord(**payload)
-
-    def _handle_path_unveiled_message(self, payload: Any) -> WeightedPathRecord:
-        return WeightedPathRecord(**payload)
-
-    def _handle_path_select_message(self, payload: Any) -> DirectionRecord:
-        return DirectionRecord(**payload)
-
-    def _handle_target_message(self, payload: Any) -> TargetRecord:
-        return TargetRecord(**payload)
-
-    def _handle_done_message(self, payload: Any) -> MessageRecord:
-        return MessageRecord(**payload)
 
     # DO NOT EDIT THE METHOD SIGNATURE
     #
