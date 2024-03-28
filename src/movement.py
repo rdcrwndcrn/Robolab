@@ -34,7 +34,7 @@ class Robot:
 
         # for PID
         # declaring proportional gain
-        self.k_p = 0.4
+        self.k_p = 8 * 10 ** -1
         # integral gain
         self.k_i = 5 * 10 ** -5
         # derivative gain
@@ -70,7 +70,7 @@ class Robot:
         # reset counter
         self.c = 0
         # move Robo to node mid
-        self.move_to_position(100, 100, 250, 250)
+        self.move_to_position(220, 220, 260, 260)
         # scan
         self.node_scan()
         # calculating where the lines are
@@ -151,16 +151,16 @@ class Robot:
     # check if colour sensor is over red or blue
     def check_for_node(self, r, g, b):
         if r > 5 * b and r > 3 * g:
-            print(f'found red node: {r, g, b}, c = {self.c}')
+            # print(f'found red node: {r, g, b}, c = {self.c}')
             self.c += 1
             if self.c > 3:
                 self.turn(7)
                 self.node_state()
         elif 1.9 * b - 0.9 * r > 40:
             self.c += 1
-            print(f'found blue node: {r, g, b}, c = {self.c}')
+            # print(f'found blue node: {r, g, b}, c = {self.c}')
             if self.c > 3:
-                self.turn(3)
+                self.turn(4)
                 self.node_state()
 
     # colour calibration function
@@ -235,8 +235,8 @@ class Robot:
         self.m_left.position_sp = (1 / 2 * degree * ticks) / 360
         self.m_right.position_sp = -(1 / 2 * degree * ticks) / 360
         # ticks per second, up to 1050
-        self.m_left.speed_sp = 100
-        self.m_right.speed_sp = 100
+        self.m_left.speed_sp = 300
+        self.m_right.speed_sp = 300
         # executing commands
         self.m_left.command = "run-to-rel-pos"
         self.m_right.command = "run-to-rel-pos"
@@ -254,7 +254,7 @@ class Robot:
         # add err to integral array
         self.all_err.append(error)
         # check if integral has to many values
-        if len(self.all_err) > 5 * 10 ** 2:
+        if len(self.all_err) > 2 * 10 ** 2:
             # remove the first (first in first out)
             self.all_err.pop(0)
         # calc integral
@@ -275,8 +275,8 @@ class Robot:
         self.m_left.position_sp = 1 / 2 * ticks
         self.m_right.position_sp = -1 / 2 * ticks
         # ticks per second, up to 1050
-        self.m_left.speed_sp = 150
-        self.m_right.speed_sp = 150
+        self.m_left.speed_sp = 220
+        self.m_right.speed_sp = 220
         # executing commands
         self.m_left.command = "run-to-rel-pos"
         self.m_right.command = "run-to-rel-pos"
@@ -318,6 +318,6 @@ class Robot:
                 # north
                 self.nodes[0] = True
         # print('<150 = north, <380 = east, <610 = south, <840 = west>')
-        # print(self.nodes)
+        print(self.nodes)
         # clear list for next node
         self.lines.clear()
