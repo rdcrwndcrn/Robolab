@@ -41,14 +41,6 @@ def run():
                         )
     logger = logging.getLogger('RoboLab')
 
-    # THE EXECUTION OF ALL CODE SHALL BE STARTED FROM WITHIN THIS FUNCTION.
-    # ADD YOUR OWN IMPLEMENTATION HEREAFTER.
-
-    # print("Hello World!")
-    # mov.node_turn(360)
-    robo = start.Robot()
-    robo.start_state()
-
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):
