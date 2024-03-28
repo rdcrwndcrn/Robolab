@@ -236,10 +236,11 @@ class Communication:
             topic = self._topic_planet
 
         self.send_message(topic, {
-            "from": "client",
-            "type": message_type,
-        } | (
-            {"payload": asdict(record)} if record is not None else {})
+                "from": "client",
+                "type": message_type,
+            } | (
+                {} if record is None else {"payload": asdict(record)}
+            )
         )
 
 
