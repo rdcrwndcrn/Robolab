@@ -3,7 +3,11 @@ from time import sleep, monotonic_ns
 
 from ev3dev import ev3
 
-from communication import ClientMessageType, Communication, DirectionRecord, MessageRecord, PathRecord, PlanetRecord, ServerMessageType, TargetRecord, WeightedPathRecord
+from communication import (
+    ClientMessageType, Communication, DirectionRecord, MessageRecord,
+    PathRecord, PlanetRecord, ServerMessageType, TargetRecord,
+    WeightedPathRecord
+)
 
 
 class Robot:
