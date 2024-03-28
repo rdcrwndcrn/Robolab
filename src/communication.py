@@ -9,9 +9,7 @@ from json import dumps, loads
 from logging import Logger
 from types import NoneType
 from typing import Any, Final
-
 from paho.mqtt.client import Client, MQTTMessage
-
 from planet import Direction
 
 

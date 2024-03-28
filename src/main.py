@@ -8,10 +8,10 @@ import uuid
 import ev3dev.ev3 as ev3
 import paho.mqtt.client as mqtt
 
-from communication import Communication, GROUP_ID
+# from communication import Communication, GROUP_ID
 from odometry import Odometry
 from planet import Direction, Planet
-
+from movement import Robot
 
 client = None  # DO NOT EDIT
 
@@ -24,7 +24,7 @@ def run():
     # to close the client after crashing.
     global client
 
-    client_id = GROUP_ID + "-" + str(uuid.uuid4())
+    client_id = "102-" + str(uuid.uuid4())
     client = mqtt.Client(
         # Unique Client-ID to recognize our program
         client_id=client_id,
@@ -49,7 +49,8 @@ def run():
     logger = logging.getLogger("RoboLab")
 
     # ==================================================================
-
+    robot = Robot()
+    robot.start_state()
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):

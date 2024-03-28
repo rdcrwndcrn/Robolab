@@ -1,5 +1,6 @@
 import time
 from ev3dev import ev3
+import math
 
 
 class Robot:
@@ -48,6 +49,14 @@ class Robot:
         # counter for getting node colours
         self.c = 0
 
+        # Odometrie
+        # list for motor positions
+        self.odo_motor_positions = []
+        # start orientation
+        self.odo_last_node_orientation = 0
+        # wheels distance in cm TODO - measuring a
+        self.a = (7.6 * 360)/3.2 * math.pi
+
     '''all 3 states are defined in the following 3 methods'''
 
     # function to get all colour values and start line following
@@ -67,6 +76,13 @@ class Robot:
 
     # scan while turning back to the start position and save it into an array
     def node_state(self):
+        # calc odometry
+        x, y, alpha = self.odometry()
+        # norming odo
+        alpha = alpha * 180 / math.pi
+        x = x / 360 * 3.2 * math.pi
+        y = y / 360 * 3.2 * math.pi
+        print(f'{x=}, {y=}, {alpha=}')
         # reset counter
         self.c = 0
         # move Robo to node mid
@@ -80,6 +96,8 @@ class Robot:
         self.choose_line()
         # continue following
         self.follower_state()
+        # reset odo
+        self.odo_motor_positions.clear()
 
     def follower_state(self):
         input("Press enter to start")
@@ -118,6 +136,8 @@ class Robot:
                     self.i = 0
                     self.c = 0
                 self.i += 1
+                # logging motor position for odo
+                self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
         finally:
             self.motor_prep()
             print('aborting ...')
@@ -243,6 +263,7 @@ class Robot:
         # print(m_left.state.__repr__())
         # giving them time to execute
         while self.m_right.is_running and self.m_left.is_running:
+            self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
             time.sleep(0.1)
             # should continue if he found the line again
             # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
@@ -321,3 +342,25 @@ class Robot:
         print(self.nodes)
         # clear list for next node
         self.lines.clear()
+
+    def odometry(self):
+        last_alpha = 0
+        x = 0
+        y = 0
+        alpha = 0
+        for i, (left, right) in enumerate(self.odo_motor_positions[1:]):
+            d_l = left - self.odo_motor_positions[i - 1][0]
+            d_r = right - self.odo_motor_positions[i - 1][1]
+            if d_r == d_l:
+                angle = 0
+                s = d_r
+            else:
+                angle = (d_r - d_l) / self.a
+                s = (d_r + d_l) / angle * math.sin(angle / 2)
+            a = s * math.sin(angle / 2)
+            b = s * math.cos(angle / 2)
+            y += b * math.cos(alpha) + a * math.sin(alpha)
+            x += a * math.cos(alpha)
+            alpha += angle
+            last_alpha = angle
+        return x, y, alpha
