@@ -1,11 +1,18 @@
-import time
+from math import pi, sin, cos
+from time import sleep, monotonic_ns
+
 from ev3dev import ev3
-import math
+
+from communication import ClientMessageType, Communication, DirectionRecord, MessageRecord, PathRecord, PlanetRecord, ServerMessageType, TargetRecord, WeightedPathRecord
 
 
 class Robot:
 
-    def __init__(self):
+    def __init__(self, client, logger):
+        self.client = client
+        self.logger = logger
+        # Communication can only start at the first supply station.
+        self.communication = None
         # for saving colours
         self.colors = {}
         self.calibrated_colors = ['black', 'white', 'red', 'blue']
@@ -55,7 +62,7 @@ class Robot:
         # start orientation
         self.odo_last_node_orientation = 0
         # wheels distance in cm TODO - measuring a
-        self.a = (7.6 * 360) / (3.2 * math.pi)
+        self.a = (7.6 * 360) / (3.2 * pi)
 
     '''all 3 states are defined in the following 3 methods'''
 
@@ -79,19 +86,23 @@ class Robot:
         # calc odometry
         x, y, alpha = self.odometry()
         # norming odo
-        alpha = alpha * 180 / math.pi
-        x = x / 360 * 3.2 * math.pi
-        y = y / 360 * 3.2 * math.pi
+        alpha = alpha * 180 / pi
+        x = x / 360 * 3.2 * pi
+        y = y / 360 * 3.2 * pi
         print(f'{x=}, {y=}, {alpha=}')
         # reset counter
         self.c = 0
         # move Robo to node mid
         self.move_to_position(220, 220, 260, 260)
+        # Begin communication
+        self.open_communication()
         # scan
         self.node_scan()
         # calculating where the lines are
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
         self.degree_to_celestial_direction()
+        # Wait for communication end
+        self.wait_for_communication_timeout()
         # turn to the chosen line to continue
         self.choose_line()
         # continue following
@@ -207,7 +218,7 @@ class Robot:
         self.m_right.reset()
         self.m_left.stop_action = "brake"
         self.m_right.stop_action = "brake"
-        time.sleep(0.1)
+        sleep(0.1)
 
     # to change the speed on both wheels
     def speed(self, v_l, v_r):
@@ -235,7 +246,7 @@ class Robot:
         self.m_left.command = "run-to-rel-pos"
         self.m_right.command = "run-to-rel-pos"
         while self.m_right.is_running and self.m_left.is_running:
-            time.sleep(0.1)
+            sleep(0.1)
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
@@ -265,7 +276,7 @@ class Robot:
         # giving them time to execute
         while self.m_right.is_running and self.m_left.is_running:
             self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
-            time.sleep(0.1)
+            sleep(0.1)
             # should continue if he found the line again
             # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
             # if found_line > offset:
@@ -307,7 +318,7 @@ class Robot:
         # rotation =
         # giving them time to execute
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
-            time.sleep(0.005)
+            sleep(0.005)
             r, g, b = self.cs.raw
             # should continue if he found the line again
             found_line = self.convert_to_grey(r, g, b)
@@ -356,8 +367,75 @@ class Robot:
                 s = d_r
             else:
                 alpha = (d_r - d_l) / self.a
-                s = (d_r + d_l) / alpha * math.sin(alpha / 2)
-            x += s * math.sin(alpha / 2 + global_direction_change)
-            y += s * math.cos(alpha / 2 + global_direction_change)
+                s = (d_r + d_l) / alpha * sin(alpha / 2)
+            x += s * sin(alpha / 2 + global_direction_change)
+            y += s * cos(alpha / 2 + global_direction_change)
             global_direction_change += alpha
         return x, y, global_direction_change
+
+    def open_communication(self):
+        # A wrapper to ensure `self.reset_communication_timeout` is called
+        # at the arrival of any new message.
+        def timeout_wrapper(handler):
+            def timeout_wrapper(*args, **kwargs):
+                self.reset_communication_timeout()
+                return handler(*args, **kwargs)
+            return timeout_wrapper
+
+        message_handlers = {
+            ServerMessageType.PLANET:
+                timeout_wrapper(self.handle_planet_message),
+            ServerMessageType.PATH:
+                timeout_wrapper(self.handle_path_message),
+            ServerMessageType.PATH_SELECT:
+                timeout_wrapper(self.handle_path_select_message),
+            ServerMessageType.PATH_UNVEILED:
+                timeout_wrapper(self.handle_path_unveiled_message),
+            ServerMessageType.DONE:
+                timeout_wrapper(self.handle_done_message),
+            ServerMessageType.TARGET:
+                timeout_wrapper(self.handle_target_message),
+        }
+
+        if self.communication is None:
+            # First supply station.
+            # Communication initialization.
+            self.communication = Communication(self.client, self.logger)
+            self.communication.message_handlers = message_handlers
+            self.communication.send_message_type(ClientMessageType.READY)
+        else:
+            self.communication.message_handlers = message_handlers
+            # TODO: Publish path message.
+
+        # Start timeout.
+        self.reset_communication_timeout()
+
+    def reset_communication_timeout(self):
+        # Set a 3 second timeout.
+        self.timeout = monotonic_ns() + 3_000_000    # + 3 s
+
+    def wait_for_communication_timeout(self):
+        while monotonic_ns() < self.timeout:
+            sleep(0.1)
+
+        # Stop handling messages.
+        self.communication.message_handlers = {}
+
+    def handle_planet_message(self, planet_record: PlanetRecord):
+        # TODO: Set start coordinates and direction.
+        pass
+
+    def handle_path_message(self, path_record: PathRecord):
+        pass
+
+    def handle_path_select_message(self, direction_record: DirectionRecord):
+        pass
+
+    def handle_path_unveiled_message(self, weighted_paht_record: WeightedPathRecord):
+        pass
+
+    def handle_target_message(self, target_record: TargetRecord):
+        pass
+
+    def handle_done_message(self, message_record: MessageRecord):
+        pass
