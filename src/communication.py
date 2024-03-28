@@ -11,11 +11,12 @@ from typing import Any, Final, Union
 from paho.mqtt.client import Client, MQTTMessage
 
 # Using Python 3.12 library version instead of Python 3.9 in order to
-# use `StrEnum`.
-from enum import StrEnum, unique
+# use `StrEnum`. Use the name `newenum` to avoid name clashes.
+from newenum import StrEnum, unique
 from planet import Direction
 
 
+# This type is not yet defined in  Python 3.9` types`.
 NoneType = type(None)
 
 # The MQTT quality of service used for all publishing/subscribing.
