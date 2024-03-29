@@ -8,7 +8,7 @@ class Robot:
     def __init__(self):
         # for saving colours
         self.colors = {}
-        self.calibrated_colors = ['black', 'white', 'red', 'blue']
+        self.calibrated_colors = ['black', 'white']
         self.offset = 0
 
         # initialising colour sensor
@@ -35,12 +35,12 @@ class Robot:
 
         # for PID
         # declaring proportional gain
-        self.k_p = 8 * 10 ** -1
+        self.k_p = 0 * 10 ** -1
         # integral gain
-        self.k_i = 5 * 10 ** -5
+        self.k_i = 0 * 10 ** -5
         # derivative gain
-        self.k_d = 3 * 10 ** -1
-        # for summing up the error, hence integral
+        self.k_d = 0 * 10 ** -1
+        # for summing up the error, hence integral -  TODO can i delete it?
         self.all_err = []
         # for calc the derivative
         self.last_err = 0
@@ -52,10 +52,14 @@ class Robot:
         # Odometrie
         # list for motor positions
         self.odo_motor_positions = []
-        # start orientation
-        self.odo_last_node_orientation = 0
-        # wheels distance in cm TODO - measuring a
+        # wheels distance in cm
         self.a = (7.6 * 360) / (3.2 * math.pi)
+
+        # for turning at the node
+        self.north = []
+        self.east = []
+        self.south = []
+        self.west = []
 
     '''all 3 states are defined in the following 3 methods'''
 
@@ -64,8 +68,6 @@ class Robot:
         # hardcoded for faster testing, will be deleted for exam
         self.colors['black'] = [42.75, 47.78, 12.14]
         self.colors['white'] = [298.72, 320.22, 107.2]
-        self.colors['red'] = [205.74, 54.37, 12.71]
-        self.colors['blue'] = [57.61, 127.47, 56.2]
 
         # measuring colour and saving them in dict
         # self.measure_colours()
@@ -96,20 +98,33 @@ class Robot:
         self.choose_line()
         # continue following
         self.follower_state()
-        # reset odo
+        # clear motor position array for odo
         self.odo_motor_positions.clear()
+        # reset motor position of each motor for odo
         self.motor_prep()
+        # reset error sum/integral for I TODO necessary?
+        self.all_err = []
+        # reset motor positions for turns
+        self.north = []
+        self.east = []
+        self.south = []
+        self.west = []
 
     def follower_state(self):
         input("Press enter to start")
         self.motor_prep()
+        integral = 0
+
+        begin = time.time()
+        i = 1 * 10 ** 3
+
         try:
-            while True:
-                # turn if bottle is less than 150 mm before Rob - TODO test if 15cm is too much
+            for x in range(i):
+                # turn if bottle is less than 150 mm before Rob
                 if self.us.value() < 150:
                     self.turn(175)
                 # get rgb values for the iteration we are in
-                r, g, b = self.cs.raw
+                r, g, b, _ = self.cs.bin_data("hhhh")
                 # check if Rob over red or blue
                 self.check_for_node(r, g, b)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
@@ -117,7 +132,7 @@ class Robot:
                 # calculating error
                 err = grey - self.offset
                 # calc integral
-                integral = self.calc_int(err)
+                integral += err  # TODO sliding windows needed? - already implemented in calc_int()
                 # calc derivative
                 derivative = err - self.last_err
                 # calc adjustments for little correction turns of wheels
@@ -128,17 +143,22 @@ class Robot:
                 self.speed(new_speed_left, new_speed_right)
                 # for derivative in next interation
                 self.last_err = err
-                # so we may save energy
                 # print(f'actual value: {grey}')
                 # print(f'right {new_speed_right} left {new_speed_left}')
                 # print()
-                # reset counters every 100 iteration
+                # reset counters every 20 iteration, to differentiate blue nodes and "blueish" points on paths
                 if self.i % 20 == 0:
                     self.i = 0
                     self.c = 0
                 self.i += 1
                 # logging motor position for odo
                 self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
+
+            end = time.time()
+            overall_time = end - begin
+            average_time = overall_time / i
+            print(f'overall loop time {overall_time} Average loop time: {average_time}')
+
         finally:
             self.motor_prep()
             print('aborting ...')
@@ -154,7 +174,7 @@ class Robot:
         avg_b = 0
         # measuring 100 times
         for i in range(100):
-            red, green, blue = self.cs.raw
+            red, green, blue, _ = self.cs.bin_data("hhhh")
             avg_r += red
             avg_g += green
             avg_b += blue
@@ -239,10 +259,20 @@ class Robot:
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
-        # for knowing which one to continue on
-        line = int(input('Choose the path in degree'))  # TODO - add connection to Planet
+        # for knowing which one to continue on - 0 for north, 1 for east, 2 for south, 3 for west
+        line = int(input('Choose the path: 0 for north, 1 for east, 2 for south, 3 for west '))
+        # TODO - add connection to Planet
+        # getting the first motor position of the lane - that's the one on the left side
+        if line == 0:
+            position = self.north[0]
+        elif line == 1:
+            position = self.east[0]
+        elif line == 2:
+            position = self.south[0]
+        else:
+            position = self.west[0]
         # turn to the path
-        self.turn(line)
+        self.turn(position)
         # follow it
         self.follower_state()
 
@@ -270,6 +300,23 @@ class Robot:
             # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
             # if found_line > offset:
             #    break
+
+    # basic turn function with degrees
+    def mp_turn(self, motor_position):
+        # for good measures
+        self.motor_prep()
+        self.m_left.position_sp = motor_position
+        self.m_right.position_sp = - motor_position
+        # ticks per second, up to 1050
+        self.m_left.speed_sp = 300
+        self.m_right.speed_sp = 300
+        # executing commands
+        self.m_left.command = "run-to-rel-pos"
+        self.m_right.command = "run-to-rel-pos"
+        # giving them time to execute
+        while self.m_right.is_running and self.m_left.is_running:
+            self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
+            time.sleep(0.1)
 
     # function for calculating the integral
     def calc_int(self, error):
@@ -308,7 +355,7 @@ class Robot:
         # giving them time to execute
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
             time.sleep(0.005)
-            r, g, b = self.cs.raw
+            r, g, b, _ = self.cs.bin_data("hhhh")
             # should continue if he found the line again
             found_line = self.convert_to_grey(r, g, b)
             if found_line < self.offset:
@@ -326,18 +373,23 @@ class Robot:
         for x in self.lines:
             if x < 150:
                 # north
+                self.north.append(x)
                 self.nodes[0] = True
             elif x < 380:
                 # east
+                self.east.append(x)
                 self.nodes[1] = True
             elif x < 610:
                 # south
+                self.south.append(x)
                 self.nodes[2] = True
             elif x < 840:
                 # west
+                self.west.append(x)
                 self.nodes[3] = True
             elif x < 950:
                 # north
+                self.north.append(x)
                 self.nodes[0] = True
         # print('<150 = north, <380 = east, <610 = south, <840 = west>')
         print(self.nodes)
