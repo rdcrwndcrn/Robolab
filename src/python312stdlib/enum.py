@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright cPython 3.9 Standard Library
+# Copyright cPython 3.12 Standard Library
 # Copied without modification (besides this comment).
 #
 # License:

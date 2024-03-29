@@ -11,8 +11,8 @@ from typing import Any, Final, Union
 from paho.mqtt.client import Client, MQTTMessage
 
 # Using Python 3.12 library version instead of Python 3.9 in order to
-# use `StrEnum`. Use the name `newenum` to avoid name clashes.
-from newenum import StrEnum, unique
+# use `StrEnum`. Use a subdirectory to avoid name clashes.
+from python312stdlib.enum import StrEnum, unique
 from planet import Direction
 
 
