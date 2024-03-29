@@ -47,12 +47,12 @@ class Planet:
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def get_paths(self) -> dict[
-                tuple[int, int],
-                dict[
-                    Direction,
-                    tuple[tuple[int, int], Direction, Weight]
-                ]
-            ]:
+        tuple[int, int],
+        dict[
+            Direction,
+            tuple[tuple[int, int], Direction, Weight]
+        ]
+    ]:
         """Returns all known paths.
 
         Example:
