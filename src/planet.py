@@ -2,7 +2,7 @@
 
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
 from enum import IntEnum, unique
-from typing import Optional
+from typing import Final, Optional
 
 
 @unique
@@ -21,10 +21,11 @@ Value:   `-1` if blocked path
         > `0` for all other paths
         never `0`
 """
+BLOCKED: Final = -1
 
 
 class Planet:
-    """The planet map representation with nodes and paths."""
+    """The planet map representation with nodes, paths and their weights."""
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def __init__(self):
@@ -44,6 +45,15 @@ class Planet:
 
         >>> planet.add_path(((0, 3), Direction.NORTH), ((0, 3), Direction.WEST), 1)
         """
+        for (start, start_direction), (target, target_direction) \
+                in ((start, target), (target, start)):
+            try:
+                record = self.paths[start]
+            except KeyError:
+                # No prior paths at node `start` registered.
+                record = self.paths[start] = {}
+
+            record[start_direction] = (target, target_direction, weight)
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def get_paths(self) -> dict[
@@ -70,6 +80,7 @@ class Planet:
                 ...
             }
         """
+        return self.paths
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def shortest_path(

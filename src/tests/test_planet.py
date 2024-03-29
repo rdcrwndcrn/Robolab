@@ -6,6 +6,8 @@ from planet import Direction, Planet
 
 
 class ExampleTestPlanet(unittest.TestCase):
+    """Example test case illustrating the task."""
+
     def setUp(self):
         """Instantiate planet data structure and fill it with paths.
 
@@ -40,22 +42,96 @@ class ExampleTestPlanet(unittest.TestCase):
 
 
 class TestRoboLabPlanet(unittest.TestCase):
+    """Test `Planet` data structure and shortest path algorithm."""
+
     def setUp(self):
         """Instantiate planet data structure and fill it with paths.
 
-        MODEL YOUR TEST PLANET HERE (if you'd like):
+        (0,2)---2---(2,2)-----2----(4,2)
+          |           |              |
+          |           1              1
+          |           |              |
+          2         (2,1)-----2----(4,1)--1--(5,1)
+          |
+          |
+          |
+        (0,0)------3------(3,0)-------2------(5,0)
+          |                                    |
+          1                                    1
+          |                                    |
+        (0,-1)---------------- -1------------(5,-1)
         """
+        # Set to see full dictionary diffs.
+        self.maxDiff = None
         # Initialize your data structure here
         self.planet = Planet()
-        # self.planet.add_path(...)
+        self.planet.add_path(((0, 0), Direction.NORTH), ((0, 2), Direction.SOUTH), 2)
+        self.planet.add_path(((0, 0), Direction.EAST),  ((3, 0), Direction.WEST),  3)
+        self.planet.add_path(((0, 0), Direction.SOUTH), ((0,-1), Direction.NORTH), 1)
+        self.planet.add_path(((0, 2), Direction.EAST),  ((2, 2), Direction.WEST),  2)
+        self.planet.add_path(((2, 2), Direction.SOUTH), ((2, 1), Direction.NORTH), 1)
+        self.planet.add_path(((2, 2), Direction.EAST),  ((4, 2), Direction.WEST),  2)
+        self.planet.add_path(((2, 1), Direction.EAST),  ((4, 1), Direction.WEST),  2)
+        self.planet.add_path(((4, 2), Direction.SOUTH), ((4, 1), Direction.NORTH), 1)
+        self.planet.add_path(((4, 1), Direction.EAST),  ((5, 1), Direction.WEST),  1)
+        self.planet.add_path(((3, 0), Direction.EAST),  ((5, 0), Direction.WEST),  2)
+        self.planet.add_path(((5, 0), Direction.SOUTH), ((5,-1), Direction.NORTH), 1)
+        self.planet.add_path(((0,-1), Direction.EAST),  ((5,-1), Direction.WEST), -1)
 
     def test_integrity(self):
         """Check the result of `planet.get_paths()` to match expected structure."""
-        self.fail('implement me!')
+        self.assertEqual(self.planet.get_paths(), {
+            (0, 0): {
+                Direction.NORTH: ((0, 2), Direction.SOUTH, 2),
+                Direction.SOUTH: ((0, -1), Direction.NORTH, 1),
+                Direction.EAST: ((3, 0), Direction.WEST, 3),
+            },
+            (0, 2): {
+                Direction.SOUTH: ((0, 0), Direction.NORTH, 2),
+                Direction.EAST: ((2, 2), Direction.WEST, 2),
+            },
+            (0, -1): {
+                Direction.NORTH: ((0, 0), Direction.SOUTH, 1),
+                Direction.EAST: ((5, -1), Direction.WEST, -1),
+            },
+            (2, 2): {
+                Direction.SOUTH: ((2, 1), Direction.NORTH, 1),
+                Direction.EAST: ((4, 2), Direction.WEST, 2),
+                Direction.WEST: ((0, 2), Direction.EAST, 2),
+            },
+            (2, 1): {
+                Direction.NORTH: ((2, 2), Direction.SOUTH, 1),
+                Direction.EAST: ((4, 1), Direction.WEST, 2),
+            },
+            (4, 1): {
+                Direction.WEST: ((2, 1), Direction.EAST, 2),
+                Direction.NORTH: ((4, 2), Direction.SOUTH, 1),
+                Direction.EAST: ((5, 1), Direction.WEST, 1),
+            },
+            (4, 2): {
+                Direction.WEST: ((2, 2), Direction.EAST, 2),
+                Direction.SOUTH: ((4, 1), Direction.NORTH, 1),
+            },
+            (5, 1): {
+                Direction.WEST: ((4, 1), Direction.EAST, 1),
+            },
+            (3, 0): {
+                Direction.WEST: ((0, 0), Direction.EAST, 3),
+                Direction.EAST: ((5, 0), Direction.WEST, 2),
+            },
+            (5, 0): {
+                Direction.WEST: ((3, 0), Direction.EAST, 2),
+                Direction.SOUTH: ((5, -1), Direction.NORTH, 1),
+            },
+            (5, -1): {
+                Direction.NORTH: ((5, 0), Direction.SOUTH, 1),
+                Direction.WEST: ((0, -1), Direction.EAST, -1),
+            },
+        })
 
     def test_empty_planet(self):
         """Check that an empty planet really is empty."""
-        self.fail('implement me!')
+        self.assertEqual(Planet().get_paths(), {})
 
     def test_target(self):
         """Check that the shortest-path algorithm implemented works.
