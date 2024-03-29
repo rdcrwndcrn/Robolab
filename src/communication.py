@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Attention: Do not import the ev3dev.ev3 module in this file
+# ATTENTION: Do not import the ev3dev.ev3 module in this file.
 import ssl
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, asdict
