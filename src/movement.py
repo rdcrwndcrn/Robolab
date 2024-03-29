@@ -1,3 +1,4 @@
+from functools import wraps
 from math import pi, sin, cos
 from time import sleep, monotonic_ns
 
@@ -390,24 +391,27 @@ class Robot:
         # A wrapper to ensure `self.reset_communication_timeout` is called
         # at the arrival of any new message.
         def timeout_wrapper(handler):
-            def timeout_wrapper(*args, **kwargs):
+            # This decorator makes the wrapper look like the wrapped function
+            # for better error messages.
+            @wraps(handler)
+            def timeout_wrapped(*args, **kwargs):
                 self.reset_communication_timeout()
                 return handler(*args, **kwargs)
-            return timeout_wrapper
+            return timeout_wrapped
 
+        # Create a message handler registry, where each handler is
+        # decorated with `timeout_wrapper` in order to reset the
+        # communication timeout on each message.
         message_handlers = {
-            ServerMessageType.PLANET:
-                timeout_wrapper(self.handle_planet_message),
-            ServerMessageType.PATH:
-                timeout_wrapper(self.handle_path_message),
-            ServerMessageType.PATH_SELECT:
-                timeout_wrapper(self.handle_path_select_message),
-            ServerMessageType.PATH_UNVEILED:
-                timeout_wrapper(self.handle_path_unveiled_message),
-            ServerMessageType.DONE:
-                timeout_wrapper(self.handle_done_message),
-            ServerMessageType.TARGET:
-                timeout_wrapper(self.handle_target_message),
+            msg_type: timeout_wrapper(handler)
+            for msg_type, handler in {
+                ServerMessageType.PLANET: self._handle_planet_message,
+                ServerMessageType.PATH: self._handle_path_message,
+                ServerMessageType.PATH_SELECT: self._handle_path_select_message,
+                ServerMessageType.PATH_UNVEILED: self._handle_path_unveiled_message,
+                ServerMessageType.DONE: self._handle_done_message,
+                ServerMessageType.TARGET: self._handle_target_message,
+            }.items()
         }
 
         if self.communication is None:
@@ -435,21 +439,21 @@ class Robot:
         # Stop handling messages.
         self.communication.message_handlers = {}
 
-    def handle_planet_message(self, planet_record: PlanetRecord):
+    def _handle_planet_message(self, planet_record: PlanetRecord):
         # TODO: Set start coordinates and direction.
         pass
 
-    def handle_path_message(self, path_record: PathRecord):
+    def _handle_path_message(self, weighted_path_record: WeightedPathRecord):
         pass
 
-    def handle_path_select_message(self, direction_record: DirectionRecord):
+    def _handle_path_select_message(self, direction_record: DirectionRecord):
         pass
 
-    def handle_path_unveiled_message(self, weighted_paht_record: WeightedPathRecord):
+    def _handle_path_unveiled_message(self, weighted_path_record: WeightedPathRecord):
         pass
 
-    def handle_target_message(self, target_record: TargetRecord):
+    def _handle_target_message(self, target_record: TargetRecord):
         pass
 
-    def handle_done_message(self, message_record: MessageRecord):
+    def _handle_done_message(self, message_record: MessageRecord):
         pass
