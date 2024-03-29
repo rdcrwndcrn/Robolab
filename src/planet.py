@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-# Attention: Do not import the ev3dev.ev3 module in this file
+# ATTENTION: Do not import the ev3dev.ev3 module in this file.
 from enum import IntEnum, unique
-from typing import Optional, List, Tuple, Dict
+from typing import Optional
 
 
 @unique
 class Direction(IntEnum):
-    """ Directions in shortcut """
+    """The orientations on the planet set by the mother ship."""
     NORTH = 0
     EAST = 90
     SOUTH = 180
@@ -15,49 +15,48 @@ class Direction(IntEnum):
 
 
 Weight = int
-"""
-Weight of a given path (received from the server)
+"""Weight of a given path (received from the server).
 
-Value:  -1 if blocked path
-        >0 for all other paths
-        never 0
+Value:   `-1` if blocked path
+        > `0` for all other paths
+        never `0`
 """
 
 
 class Planet:
-    """
-    Contains the representation of the map and provides certain functions to manipulate or extend
-    it according to the specifications
-    """
+    """The planet map representation with nodes and paths."""
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def __init__(self):
-        """ Initializes the data structure """
+        """Initialize the data structure."""
         self.paths = {}
 
     # DO NOT EDIT THE METHOD SIGNATURE
-    def add_path(self, start: Tuple[Tuple[int, int], Direction], target: Tuple[Tuple[int, int], Direction],
-                 weight: int):
-        """
-         Adds a bidirectional path defined between the start and end coordinates to the map and assigns the weight to it
+    def add_path(
+        self,
+        start: tuple[tuple[int, int], Direction],
+        target: tuple[tuple[int, int], Direction],
+        weight: Weight,
+    ):
+        """Add a bidirectional path from `start` to `end` with `weight`.
 
         Example:
-            add_path(((0, 3), Direction.NORTH), ((0, 3), Direction.WEST), 1)
-        :param start: 2-Tuple
-        :param target:  2-Tuple
-        :param weight: Integer
-        :return: void
-        """
 
-        # YOUR CODE FOLLOWS (remove pass, please!)
-        pass
+        >>> planet.add_path(((0, 3), Direction.NORTH), ((0, 3), Direction.WEST), 1)
+        """
 
     # DO NOT EDIT THE METHOD SIGNATURE
-    def get_paths(self) -> Dict[Tuple[int, int], Dict[Direction, Tuple[Tuple[int, int], Direction, Weight]]]:
-        """
-        Returns all paths
+    def get_paths(self) -> dict[
+                tuple[int, int],
+                dict[
+                    Direction,
+                    tuple[tuple[int, int], Direction, Weight]
+                ]
+            ]:
+        """Returns all known paths.
 
         Example:
+
             {
                 (0, 3): {
                     Direction.NORTH: ((0, 3), Direction.WEST, 1),
@@ -70,24 +69,22 @@ class Planet:
                 },
                 ...
             }
-        :return: Dict
         """
-
-        # YOUR CODE FOLLOWS (remove pass, please!)
-        pass
 
     # DO NOT EDIT THE METHOD SIGNATURE
-    def shortest_path(self, start: Tuple[int, int], target: Tuple[int, int]) -> Optional[List[Tuple[Tuple[int, int], Direction]]]:
-        """
-        Returns a shortest path between two nodes
+    def shortest_path(
+        self,
+        start: tuple[int, int],
+        target: tuple[int, int],
+    ) -> Optional[list[tuple[tuple[int, int], Direction]]]:
+        """Returns a shortest known path between two nodes.
+
+        If there is no known path between the two nodes, returns `None`.
 
         Examples:
-            shortest_path((0,0), (2,2)) returns: [((0, 0), Direction.EAST), ((1, 0), Direction.NORTH)]
-            shortest_path((0,0), (1,2)) returns: None
-        :param start: 2-Tuple
-        :param target: 2-Tuple
-        :return: None, List[] or List[Tuple[Tuple[int, int], Direction]]
-        """
 
-        # YOUR CODE FOLLOWS (remove pass, please!)
-        pass
+        >>> shortest_path((0,0), (2,2))
+        [((0, 0), Direction.EAST), ((1, 0), Direction.NORTH)]
+        >>> shortest_path((0,0), (1,2))
+        None
+        """
