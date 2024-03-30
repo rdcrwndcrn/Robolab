@@ -64,7 +64,7 @@ class Planet:
             tuple[tuple[int, int], Direction, Weight]
         ]
     ]:
-        """Returns all known paths.
+        """Return all known paths.
 
         Example:
 
@@ -89,11 +89,11 @@ class Planet:
         start: tuple[int, int],
         target: tuple[int, int],
     ) -> Optional[list[tuple[tuple[int, int], Direction]]]:
-        """Returns (one of) the shortest known path between two nodes.
+        """Return (one of) the shortest known path between two nodes.
 
         If there is no known path between the two nodes, returns `None`.
         If we already are at the `target` node, i. e. `start` is the
-        same as `target`, return an empty list `[]`.
+        same as `target`, returns an empty list `[]`.
 
         Examples:
 
