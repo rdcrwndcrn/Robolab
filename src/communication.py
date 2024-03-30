@@ -16,6 +16,9 @@ from python312stdlib.enum import StrEnum, unique
 from planet import Direction
 
 
+# `types.NoneType` is not included in Python 3.9.
+NoneType = type(None)
+
 # The MQTT quality of service used for all publishing/subscribing.
 QOS: Final = 2
 
@@ -139,7 +142,9 @@ SERVER_MESSAGE_RECORD_TYPES = {
 # The payload record types corresponding to the message types received
 # sent by the client.
 CLIENT_MESSAGE_RECORD_TYPES = {
-    ClientMessageType.READY: None,
+    # Usage of `NoneType` is required as `isinstance` expects a type as
+    # argument.
+    ClientMessageType.READY: NoneType,
     ClientMessageType.PATH: PathRecord,
     ClientMessageType.PATH_SELECT: StartRecord,
     ClientMessageType.TARGET_REACHED: MessageRecord,
