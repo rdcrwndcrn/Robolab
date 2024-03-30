@@ -154,9 +154,9 @@ class Robot:
                 self.speed(new_speed_left, new_speed_right)
                 # for derivative in next interation
                 # for testing TODO remove
-                if self.i % 17 == 0:
-                    print(f' {new_speed_right=} {new_speed_left=}')
-                    print(f'{turns=} {self.k_p*err=} {self.k_i*integral=} {integral=} {self.ki*integral=}')
+                # if self.i % 17 == 0:
+                #    print(f' {new_speed_right=} {new_speed_left=}')
+                #    print(f'{turns=} {self.k_p*err=} {self.k_i*integral=} {integral=} {self.ki*integral=}')
                 self.last_err = err
                 # print(f'actual value: {grey}')
                 # print(f'right {new_speed_right} left {new_speed_left}')
