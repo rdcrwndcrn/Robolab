@@ -3,6 +3,7 @@
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
 from enum import IntEnum, unique
 from typing import Final, Optional
+from queue import PriorityQueue
 
 
 @unique
@@ -88,7 +89,7 @@ class Planet:
         start: tuple[int, int],
         target: tuple[int, int],
     ) -> Optional[list[tuple[tuple[int, int], Direction]]]:
-        """Returns a shortest known path between two nodes.
+        """Returns (one of) the shortest known path between two nodes.
 
         If there is no known path between the two nodes, returns `None`.
 
@@ -99,3 +100,15 @@ class Planet:
         >>> shortest_path((0,0), (1,2))
         None
         """
+        shortest_paths: list[tuple[tuple[int, int], Direction]] = []
+        nodes_to_check: PriorityQueue[
+            tuple[Weight, tuple[int, int], Optional[tuple[int, int]]]
+        ] = PriorityQueue()
+        try:
+            nodes_to_check.put((0, start, None))
+        except KeyError:
+            # `start` not known, so no path can be found.
+            return None
+
+        while not nodes_to_check.empty():
+            ...
