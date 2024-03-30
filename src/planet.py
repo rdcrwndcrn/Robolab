@@ -116,7 +116,10 @@ class Planet:
         # A dictionary keeping track of the new neighbor nodes to check,
         # storing the current sum of weights to the node, the node
         # coordinates and the previous node we came from.
-        # TODO: Compare the performance of the `dict` with a list using `heapq`.
+        # This turns out to be a bit faster than using `heapq` in my
+        # measurements. Also `queue.PriorityQueue` is not really applicable,
+        # since we can't iterate over its elements in order to update already
+        # added ones.
         nodes_to_check: dict[
             tuple[int, int],
             tuple[Weight, Optional[tuple[int, int]], Optional[Direction]]

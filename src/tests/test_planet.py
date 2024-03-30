@@ -201,20 +201,21 @@ class TestRoboLabPlanet(unittest.TestCase):
 
     def test_reversed_path(self):
         """Check that the shortest paths are the same in both directions."""
+        # This test requires that there is only one shortest path.
         self.assertEqual(
-            self.planet.shortest_path((0, -1), (2, 1)),
+            self.planet.shortest_path((5, -1), (2, 1)),
             [
-                ((0, -1), Direction.NORTH),
-                ((0, 0), Direction.EAST),
+                ((5, -1), Direction.NORTH),
+                ((5, 0), Direction.WEST),
                 ((3, 0), Direction.NORTH),
             ],
         )
         self.assertEqual(
-            self.planet.shortest_path((2, 1), (0, -1)),
+            self.planet.shortest_path((2, 1), (5, -1)),
             [
                 ((2, 1), Direction.SOUTH),
-                ((3, 0), Direction.WEST),
-                ((0, 0), Direction.SOUTH),
+                ((3, 0), Direction.EAST),
+                ((5, 0), Direction.SOUTH),
             ],
         )
 
