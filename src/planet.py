@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
+from collections import deque
 from enum import IntEnum, unique
+from math import inf
 from typing import Final, Optional
-from queue import PriorityQueue
 
 
 @unique
@@ -107,21 +108,71 @@ class Planet:
                 # We cannot know a path as we don't even know the node.
                 return None
 
-        if start == target:
-            # We have already reached our `target`, no further movement needed.
-            return []
-
-        shortest_paths: list[tuple[tuple[int, int], Direction]] = []
-        # A priority queue keeping track of the new neighbor nodes to check,
-        # storing the current sum of weights to the node, the node coordinates
-        # and the previous node we came from.
-        # TODO: Consider `collections.deque` as an alternative to `PriorityQueue`.
-        nodes_to_check: PriorityQueue[
-            tuple[Weight, tuple[int, int], Optional[tuple[int, int]]]
-        ] = PriorityQueue()
+        # Stores the resulting predecessor nodes forming the shortest path to
+        # the current node.
+        shortest_paths: dict[
+            tuple[int, int],
+            tuple[Optional[tuple[int, int]], Optional[Direction]]
+        ] = {}
+        # A dictionary keeping track of the new neighbor nodes to check,
+        # storing the current sum of weights to the node, the node
+        # coordinates and the previous node we came from.
+        # TODO: Compare the performance of the `dict` with a list using `heapq`.
+        nodes_to_check: dict[
+            tuple[int, int],
+            tuple[Weight, Optional[tuple[int, int]], Optional[Direction]]
+        ] = {}
         # Start with the start node, coming from no other node.
-        nodes_to_check.put((0, start, None))
+        nodes_to_check[start] = (0, None, None)
 
-        while not nodes_to_check.empty():
-            for i in nodes_to_check:
-                pass
+        while nodes_to_check:   # while `nodes_to_check` is not empty
+            # Find node with minimum weight.
+            min_weight = inf
+            min_node = None
+            min_node_pred = None
+            min_node_dir = None
+            for node, (weight, predecessor, direction) in nodes_to_check.items():
+                if weight < min_weight:
+                    min_weight = weight
+                    min_node = node
+                    min_node_pred = predecessor
+                    min_node_dir = direction
+
+            # Shortest path to this node found, add it to our dict.
+            shortest_paths[min_node] = (min_node_pred, min_node_dir)
+            # ... and remove it from our checklist.
+            del nodes_to_check[min_node]
+
+            # If this node is our target, we have found a shortest path
+            # and are finished.
+            if min_node == target:
+                break
+
+            # Add or update this node's neighbors if shortest path to
+            # them not already found and the path to them is not blocked.
+            for direction, (neighbor, _, weight) in self.paths[min_node].items():
+                if neighbor not in shortest_paths and weight != BLOCKED:
+                    new_record = (min_weight + weight, min_node, direction)
+                    try:
+                        neighbor_record = nodes_to_check[neighbor]
+                    except KeyError:
+                        nodes_to_check[neighbor] = new_record
+                    else:
+                        if new_record[0] < neighbor_record[0]:
+                            # Only update if weight is smaller.
+                            nodes_to_check[neighbor] = new_record
+        else:
+            # Target not found (`while` loop not aborted).
+            return None
+
+        # Reconstruct shortest path.
+        # Using a `deque` in order to efficiently prepend at the beginning to
+        # get the right path order.
+        # TODO: Measure if there really is a performance benefit in using it.
+        shortest_path: deque[tuple[tuple[int, int], Direction]] = deque()
+        # If `start` is the same as `target`, this results in an empty `deque`.
+        while (predecessor := shortest_paths[target])[0] is not None:
+            shortest_path.appendleft(predecessor)
+            target = predecessor[0]
+
+        return list(shortest_path)

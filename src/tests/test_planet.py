@@ -182,33 +182,39 @@ class TestRoboLabPlanet(unittest.TestCase):
                 ((2, 1), Direction.SOUTH),
             ],
         )
-        # Also take a way with much more nodes if it is shorter.
-        self.assertEqual(
-            self.planet.shortest_path((5, 0), (4, 2)),
+        # Also take a way with much more nodes if it is shorter; there are
+        # two possible paths of equal cost.
+        self.assertIn(self.planet.shortest_path((5, 0), (4, 2)), [
             [
                 ((5, 0), Direction.WEST),
                 ((3, 0), Direction.NORTH),
                 ((2, 1), Direction.EAST),
                 ((4, 1), Direction.NORTH),
             ],
-        )
+            [
+                ((5, 0), Direction.WEST),
+                ((3, 0), Direction.NORTH),
+                ((2, 1), Direction.NORTH),
+                ((2, 2), Direction.EAST),
+            ],
+        ])
 
     def test_reversed_path(self):
         """Check that the shortest paths are the same in both directions."""
         self.assertEqual(
-            self.planet.shortest_path((0, 2), (3, 0)),
+            self.planet.shortest_path((0, -1), (2, 1)),
             [
-                ((0, 2), Direction.EAST),
-                ((2, 2), Direction.SOUTH),
-                ((2, 1), Direction.SOUTH),
+                ((0, -1), Direction.NORTH),
+                ((0, 0), Direction.EAST),
+                ((3, 0), Direction.NORTH),
             ],
         )
         self.assertEqual(
-            self.planet.shortest_path((3, 0), (0, 2)),
+            self.planet.shortest_path((2, 1), (0, -1)),
             [
-                ((3, 0), Direction.NORTH),
-                ((2, 1), Direction.NORTH),
-                ((2, 2), Direction.WEST),
+                ((2, 1), Direction.SOUTH),
+                ((3, 0), Direction.WEST),
+                ((0, 0), Direction.SOUTH),
             ],
         )
 
