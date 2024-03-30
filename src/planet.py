@@ -171,8 +171,8 @@ class Planet:
         shortest_path: list[tuple[tuple[int, int], Direction]] = []
         # If `start` is the same as `target`, this results in an empty `list`.
         while (predecessor := shortest_paths[target])[0] is not None:
-            shortest_path.append(predecessor)
+            # Insert at the beginning as unroll backwards.
+            shortest_path.insert(0, predecessor)
             target = predecessor[0]
 
-        # Reverse list in order to get the path from the start to end node.
-        return shortest_path[::-1]
+        return shortest_path
