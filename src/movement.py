@@ -25,7 +25,7 @@ class Robot:
         # left motor is on output A
         self.m_left = ev3.LargeMotor("outA")
         # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-        self.t_p = 220
+        self.t_p = 400
 
         # for node scanning
         self.lines = []
@@ -35,13 +35,20 @@ class Robot:
 
         # for PID
         # declaring proportional gain
-        self.k_p = 0 * 10 ** -1
+        self.k_p = 6 * 10 ** -1
         # integral gain
-        self.k_i = 0 * 10 ** -5
+        self.k_i = 6 * 10 ** -1
+        # second I controller for going slower in slopes
+        self.ki = 30
         # derivative gain
-        self.k_d = 0 * 10 ** -1
-        # for summing up the error, hence integral -  TODO can i delete it?
+        self.k_d = 2 * 10 ** -1
+        # 40,92 ms per loop -> 1s has ~24,5 iterations
+        # 60 iterations ~ 2,5 s
+        self.i_length = 60
+        # for summing up the error, hence integral
         self.all_err = []
+        # constant to shrink error in interval
+        self.k_err = 0.004
         # for calc the derivative
         self.last_err = 0
         # counter for iterations in while
@@ -66,8 +73,8 @@ class Robot:
     # function to get all colour values and start line following
     def start_state(self):
         # hardcoded for faster testing, will be deleted for exam
-        self.colors['black'] = [42.75, 47.78, 12.14]
-        self.colors['white'] = [298.72, 320.22, 107.2]
+        self.colors['black'] = [19.23, 22.58, 6.13]
+        self.colors['white'] = [240.02, 258.32, 82.18]
 
         # measuring colour and saving them in dict
         # self.measure_colours()
@@ -75,21 +82,32 @@ class Robot:
         self.calc_off()
         # start driving
         self.follower_state()
+        # for Odo
+        self.motor_prep()
 
     # scan while turning back to the start position and save it into an array
     def node_state(self):
         # calc odometry
-        x, y, alpha = self.odometry()
+        # x, y, alpha = self.odometry()
         # norming odo
-        alpha = alpha * 180 / math.pi
-        x = x / 360 * 3.2 * math.pi
-        y = y / 360 * 3.2 * math.pi
-        print(f'{x=}, {y=}, {alpha=}')
+        # alpha = alpha * 180 / math.pi
+        # x = x / 360 * 3.2 * math.pi
+        # y = y / 360 * 3.2 * math.pi
+        # print(f'{x=}, {y=}, {alpha=}')
         # reset counter
         self.c = 0
         # move Robo to node mid
-        self.move_to_position(220, 220, 260, 260)
+        self.move_to_position(400, 400, 240, 240)
         # scan
+        # TODO just for testing - remove
+        # interval = self.i_length
+        # k_i = self.k_i
+        # ki = self.ki
+        # t_p = self.t_p
+        # self.i_length = float(input(f'{interval=} Enter new interval length '))
+        # self.k_i = float(input(f'{k_i=} Enter new k_i value ')) * 10 ** -1
+        # self.ki = float(input(f'{ki=} Enter new ki value ')) * 10 ** 0
+        # self.t_p = float(input(f'{t_p=} Enter new t_p value '))
         self.node_scan()
         # calculating where the lines are
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
@@ -100,9 +118,7 @@ class Robot:
         self.follower_state()
         # clear motor position array for odo
         self.odo_motor_positions.clear()
-        # reset motor position of each motor for odo
-        self.motor_prep()
-        # reset error sum/integral for I TODO necessary?
+        # reset error sum/integral for I
         self.all_err = []
         # reset motor positions for turns
         self.north = []
@@ -112,14 +128,9 @@ class Robot:
 
     def follower_state(self):
         input("Press enter to start")
-        self.motor_prep()
-        integral = 0
-
-        begin = time.time()
-        i = 1 * 10 ** 3
 
         try:
-            for x in range(i):
+            while True:
                 # turn if bottle is less than 150 mm before Rob
                 if self.us.value() < 150:
                     self.turn(175)
@@ -132,33 +143,31 @@ class Robot:
                 # calculating error
                 err = grey - self.offset
                 # calc integral
-                integral += err  # TODO sliding windows needed? - already implemented in calc_int()
+                integral = self.calc_int(err)
                 # calc derivative
                 derivative = err - self.last_err
                 # calc adjustments for little correction turns of wheels
                 turns = self.k_p * err + self.k_i * integral + self.k_d * derivative
                 # continuing with adjusted speed
-                new_speed_left = self.t_p + turns
-                new_speed_right = self.t_p - turns
+                new_speed_left = self.t_p + turns - abs(integral) * self.ki
+                new_speed_right = self.t_p - turns - abs(integral) * self.ki
                 self.speed(new_speed_left, new_speed_right)
                 # for derivative in next interation
+                # for testing TODO remove
+                if self.i % 17 == 0:
+                    print(f' {new_speed_right=} {new_speed_left=}')
+                    print(f'{turns=} {self.k_p*err=} {self.k_i*integral=} {integral=} {self.ki*integral=}')
                 self.last_err = err
                 # print(f'actual value: {grey}')
                 # print(f'right {new_speed_right} left {new_speed_left}')
                 # print()
-                # reset counters every 20 iteration, to differentiate blue nodes and "blueish" points on paths
-                if self.i % 20 == 0:
+                # reset counters every 17 iteration, to differentiate blue nodes and "blueish" points on paths
+                if self.i % 17 == 0:
                     self.i = 0
                     self.c = 0
                 self.i += 1
                 # logging motor position for odo
                 self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
-
-            end = time.time()
-            overall_time = end - begin
-            average_time = overall_time / i
-            print(f'overall loop time {overall_time} Average loop time: {average_time}')
-
         finally:
             self.motor_prep()
             print('aborting ...')
@@ -194,21 +203,25 @@ class Robot:
         if r > 5 * b and r > 3 * g:
             # print(f'found red node: {r, g, b}, c = {self.c}')
             self.c += 1
-            if self.c > 3:
-                self.turn(7)
+            if self.c > 1:
+                # reset motor position of each motor for odo and to stop
+                self.motor_prep()
+                # self.turn(7)
                 self.node_state()
         elif 1.9 * b - 0.9 * r > 40:
             self.c += 1
             # print(f'found blue node: {r, g, b}, c = {self.c}')
-            if self.c > 3:
+            if self.c > 1:
+                # reset motor position of each motor for odo and to stop
+                self.motor_prep()
                 self.turn(4)
                 self.node_state()
 
     # colour calibration function
     def measure_colours(self):
         for x in self.calibrated_colors:
-            # wait, so we can move Robo and know which colour is next
-            input(f"Press enter to read {x}.")
+            # wait, so we can move Robo and know which colour is next - TODO change input to button on ev3 brick
+            # input(f"Press enter to read {x}.")
             # getting and saving rgb-values
             self.colors[x] = self.calibration()
             print(self.colors[x])
@@ -255,7 +268,7 @@ class Robot:
         self.m_left.command = "run-to-rel-pos"
         self.m_right.command = "run-to-rel-pos"
         while self.m_right.is_running and self.m_left.is_running:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
@@ -272,7 +285,8 @@ class Robot:
         else:
             position = self.west[0]
         # turn to the path
-        self.turn(position)
+        # print(f'position: {position}')
+        self.mp_turn(position)
         # follow it
         self.follower_state()
 
@@ -321,20 +335,23 @@ class Robot:
     # function for calculating the integral
     def calc_int(self, error):
         # add err to integral array
-        self.all_err.append(error)
-        # check if integral has to many values
-        if len(self.all_err) > 2 * 10 ** 2:
+        self.all_err.append(self.k_err * error)
+        # check if integral has to many values - sliding window
+        if len(self.all_err) > self.i_length:
             # remove the first (first in first out)
             self.all_err.pop(0)
         # calc integral
         integral = sum(self.all_err)
-        # integral * k_i should not be bigger than +-10, that means an additional difference of 20 ticks
-        integral_adjusted = min(max(integral, -1000000), 1000000)
+        product = self.k_i * integral
+        if self.i % 17 == 0:  # TODO remove
+            print(f'{self.i}th {integral=}')
+        # that means an additional difference of 20 ticks, before k_i
+        integral_adjusted = min(max(product, -10), +10)
         return integral_adjusted
 
     # function for scanning the node and noting motor position if black is found
     def node_scan(self):
-        print("Scanning for lines")
+        # print("Scanning for lines")
         # motor prep so the position attribute from the motors is exact
         self.motor_prep()
         # 1860 * 2 ticks ~ 360 degree
@@ -349,16 +366,14 @@ class Robot:
         # executing commands
         self.m_left.command = "run-to-rel-pos"
         self.m_right.command = "run-to-rel-pos"
-        # print(m_left.state.__repr__()
-        # for knowing where the line was detected
-        # rotation =
         # giving them time to execute
         while 'running' in self.m_left.state or 'running' in self.m_right.state:
             time.sleep(0.005)
             r, g, b, _ = self.cs.bin_data("hhhh")
             # should continue if he found the line again
             found_line = self.convert_to_grey(r, g, b)
-            if found_line < self.offset:
+            if found_line > self.offset:  # TODO change > to < if line black
+                # print(f'{found_line=}')
                 self.lines.append(self.m_left.position)  # TODO change it to degrees with Odometrie
 
     # function to turn the motor.position into a compass
@@ -391,8 +406,10 @@ class Robot:
                 # north
                 self.north.append(x)
                 self.nodes[0] = True
+        # print(f'{self.lines=}')
         # print('<150 = north, <380 = east, <610 = south, <840 = west>')
-        print(self.nodes)
+        # print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
+        print(f'{self.nodes=}')
         # clear list for next node
         self.lines.clear()
 
