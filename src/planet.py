@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
-from collections import deque
 from enum import IntEnum, unique
 from math import inf
 from typing import Final, Optional
@@ -166,13 +165,11 @@ class Planet:
             return None
 
         # Reconstruct shortest path.
-        # Using a `deque` in order to efficiently prepend at the beginning to
-        # get the right path order.
-        # TODO: Measure if there really is a performance benefit in using it.
-        shortest_path: deque[tuple[tuple[int, int], Direction]] = deque()
-        # If `start` is the same as `target`, this results in an empty `deque`.
+        shortest_path: list[tuple[tuple[int, int], Direction]] = []
+        # If `start` is the same as `target`, this results in an empty `list`.
         while (predecessor := shortest_paths[target])[0] is not None:
-            shortest_path.appendleft(predecessor)
+            shortest_path.append(predecessor)
             target = predecessor[0]
 
-        return list(shortest_path)
+        # Reverse list in order to get the path from the start to end node.
+        return shortest_path[::-1]
