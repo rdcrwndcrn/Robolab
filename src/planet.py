@@ -92,6 +92,8 @@ class Planet:
         """Returns (one of) the shortest known path between two nodes.
 
         If there is no known path between the two nodes, returns `None`.
+        If we already are at the `target` node, i. e. `start` is the
+        same as `target`, return an empty list `[]`.
 
         Examples:
 
@@ -100,15 +102,26 @@ class Planet:
         >>> shortest_path((0,0), (1,2))
         None
         """
+        for node in (start, target):
+            if node not in self.paths:
+                # We cannot know a path as we don't even know the node.
+                return None
+
+        if start == target:
+            # We have already reached our `target`, no further movement needed.
+            return []
+
         shortest_paths: list[tuple[tuple[int, int], Direction]] = []
+        # A priority queue keeping track of the new neighbor nodes to check,
+        # storing the current sum of weights to the node, the node coordinates
+        # and the previous node we came from.
+        # TODO: Consider `collections.deque` as an alternative to `PriorityQueue`.
         nodes_to_check: PriorityQueue[
             tuple[Weight, tuple[int, int], Optional[tuple[int, int]]]
         ] = PriorityQueue()
-        try:
-            nodes_to_check.put((0, start, None))
-        except KeyError:
-            # `start` not known, so no path can be found.
-            return None
+        # Start with the start node, coming from no other node.
+        nodes_to_check.put((0, start, None))
 
         while not nodes_to_check.empty():
-            ...
+            for i in nodes_to_check:
+                pass
