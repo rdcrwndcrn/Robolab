@@ -169,7 +169,7 @@ class Follower(State):
     def run(self):
         # line following loop
         input("to start Follower press enter")
-
+        self.robot.motor_prep()
         try:
             while True:
                 # get rgb values for the iteration we are in
@@ -333,8 +333,11 @@ class Node(State):
         self.degree_to_celestial_direction()
         # turn to the chosen line to continue
         self.choose_line()
+        print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
+        print(f'{len(self.robot.odo_motor_positions)=}')
         # clear motor position array for odo
         self.robot.odo_motor_positions.clear()
+        print(f'{len(self.robot.odo_motor_positions)=}')
 
         # back to line following
         next_state = Follower(self.robot)
@@ -345,6 +348,8 @@ class Node(State):
         x = 0
         y = 0
         global_direction_change = 0
+
+        angle=[]
         for i, (left, right) in enumerate(self.robot.odo_motor_positions[1:]):
             d_l = left - self.robot.odo_motor_positions[i - 1][0]
             d_r = right - self.robot.odo_motor_positions[i - 1][1]
@@ -357,7 +362,12 @@ class Node(State):
             x += s * math.sin(global_direction_change + alpha / 2)
             y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
+            angle.append(alpha)
+            self.histogram(angle)
         return x, y, global_direction_change
+
+    def histogram(self, angle):
+        pass
 
     # move to position
     def move_to_position(self, v_l, v_r, s_l, s_r):
