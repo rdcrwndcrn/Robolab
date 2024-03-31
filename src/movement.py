@@ -77,7 +77,7 @@ class Robot:
         self.colors['white'] = [240.02, 258.32, 82.18]
 
         # measuring colour and saving them in dict
-        # self.measure_colours()
+        self.measure_colours()
         # calc offset for PID
         self.calc_off()
         # start driving
