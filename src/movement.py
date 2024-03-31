@@ -59,7 +59,7 @@ class Robot:
         # Odometrie
         # list for motor positions
         self.odo_motor_positions = []
-        # wheels distance in cm
+        # wheels distance 7,6 cm in ticks
         self.a = (7.6 * 360) / (3.2 * math.pi)
 
         # for turning at the node
@@ -426,7 +426,7 @@ class Robot:
             else:
                 alpha = (d_r - d_l) / self.a
                 s = (d_r + d_l) / alpha * math.sin(alpha / 2)
-            x += s * math.sin(alpha / 2 + global_direction_change)
-            y += s * math.cos(alpha / 2 + global_direction_change)
+            x += s * math.sin(global_direction_change + alpha / 2)
+            y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
         return x, y, global_direction_change

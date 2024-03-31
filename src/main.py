@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 from communication import Communication, GROUP_ID
 from odometry import Odometry
 from planet import Direction, Planet
-from movement import Robot
+import robot as rob
 
 client = None  # DO NOT EDIT
 
@@ -49,8 +49,13 @@ def run():
     logger = logging.getLogger("RoboLab")
 
     # ==================================================================
-    robot = Robot()
-    robot.start_state()
+    # create robot instance
+    robot = rob.Robot()
+    # set start state in rob instance to color calibration state, which needs the instance if Robo
+    robot.set_start_state(rob.ColourCalibration(robot))
+    # start by running runAll from robo class
+    robot.runAll()
+
 
 # DO NOT EDIT
 def signal_handler(sig=None, frame=None, raise_interrupt=True):
