@@ -4,6 +4,7 @@
 from collections import deque
 from enum import IntEnum, unique
 from math import inf
+from random import choice
 from typing import Final, Optional
 
 
@@ -59,6 +60,7 @@ class Planet:
         to be known on the map, else a `KeyError` is raised.
         """
         # Check whether there is no reachable unexplored node left.
+        # TODO: Check whether really needed (also included in `next_direction`).
         return self._shortest_path(current_node) is None
 
     # DO NOT EDIT THE METHOD SIGNATURE
@@ -123,6 +125,69 @@ class Planet:
         """
         return self._paths
 
+    def is_completely_explored(self, node: tuple[int, int]) -> bool:
+        """Return whether the given `node` is fully explored.
+
+        This checks whether `node` was already visited, so the number of
+        paths from it is known, and this number matches the number of
+        already completed paths at this node (either by the robot itself
+        or with the help of the server) or if it was not visited, but
+        all 4 possible directions are already fully explored, so a visit
+        is unnecessary.
+
+        It is assumed that `node` is valid, else a `KeyError` will be
+        raised.
+        """
+        return (
+            (visited := node in self._known_node_directions)
+            and len(self._known_node_directions[node])
+                == (completed_directions_number := len(self._paths[node]))
+            or not visited
+            and completed_directions_number == len(Direction)
+        )
+
+    def next_direction(
+        self,
+        start: tuple[int, int],
+        target: Optional[tuple[int, int]] = None
+    ) -> Optional[Direction]:
+        """Return the next direction to head for from `start`.
+
+        If `target` is not `None`, this tries to head to it as fast as
+        possible, if it is `None`, the direction to the next unexplored
+        path or the next unexplored direction is returned. If none of
+        the above are found, `None` is returned, signalling the
+        completion of exploration.
+
+        Both `start` and `target` (if not `None`) are assumed to be
+        valid coordinates, else a `KeyError` will be raised. Also both
+        coordinates are assumed, if given, to be different, else an
+        `IndexError` will be raised.
+        """
+        if target is None and not self.is_completely_explored(start):
+            # Choose randomly one of the remaining unexplored
+            # directions.
+            return choice([
+                direction
+                for direction in self._known_node_directions[start]
+                if direction not in self._paths[start]
+            ])
+        else:
+            shortest_path = self._shortest_path(start, target)
+
+            if shortest_path is None and target is not None:
+                # `target` not yet reachable, continue exploring normally.
+                shortest_path = self._shortest_path(start)
+
+            # Recheck in case `shortest_path` got updated.
+            if shortest_path is None:
+                # No direction found, exploration completed.
+                return None
+            # Assume the case `[]` won't happen.
+            else:
+                # Return the direction towards our next target.
+                return shortest_path[0][1]
+
     def _shortest_path(
         self,
         start: tuple[int, int],
@@ -165,8 +230,6 @@ class Planet:
         # Start with the start node, coming from no other node.
         nodes_to_check[start] = (0, None, None)
 
-        directions_number = len(Direction)
-
         while nodes_to_check:   # while `nodes_to_check` is not empty
             # Find node with minimum weight.
             min_weight = inf
@@ -190,14 +253,8 @@ class Planet:
             # If this node is our target or meets our requirements, we
             # have found a shortest path and are finished.
             if (not target_is_none and min_node == target
-                or target_is_none and not (
-                    (visited := min_node in self._known_node_directions)
-                    and len(self._known_node_directions[min_node])
-                        == (completed_directions_number := len(min_node_paths))
-                    or not visited
-                    and completed_directions_number == directions_number
-                )
-            ):
+                    or target_is_none
+                    and not self.is_completely_explored(min_node)):
                 # Set target to current node in case we are searching
                 # for the next unexplored node.
                 target = min_node
