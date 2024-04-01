@@ -51,7 +51,7 @@ def run():
     # ==================================================================
     # create robot instance
     robot = rob.Robot()
-    # set start state in rob instance to color calibration state, which needs the instance if Robo
+    # set start state in rob instance to color calibration state, which needs to be an instance of Robo
     robot.set_start_state(rob.ColourCalibration(robot))
     # start by running runAll from robo class
     robot.runAll()
