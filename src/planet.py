@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
+from collections import deque
 from enum import IntEnum, unique
 from math import inf
 from typing import Final, Optional
@@ -22,16 +23,71 @@ Value:   `-1` if blocked path
         > `0` for all other paths
         never `0`
 """
-BLOCKED: Final = -1
+BLOCKED: Final[Weight] = -1
 
 
 class Planet:
     """The planet map representation with nodes, paths and their weights."""
 
     # DO NOT EDIT THE METHOD SIGNATURE
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the data structure."""
-        self.paths = {}
+        # The registered existing paths on the planet, probably incomplete.
+        self._paths: dict[
+            tuple[int, int],
+            dict[
+                Direction,
+                tuple[tuple[int, int], Direction, Weight]
+            ]
+        ] = {}
+        # The directions available at all visited nodes.
+        self._known_node_directions: dict[
+            tuple[int, int],
+            set[Direction]
+        ] = {}
+
+    def exploration_completed(self, current_node: tuple[int, int]) -> bool:
+        """Return whether planet exploration is completed.
+
+        This checks whether all reachable nodes from the `current_node`
+        have full path information, i. e. all the paths to them have
+        either been visited or the robot has received information about
+        them from the server.
+
+        Only useful after an initial call to `add_path` or
+        `set_available_node_directions` as the `current_node` is assumed
+        to be known on the map, else a `KeyError` is raised.
+        """
+        # Check all reachable nodes from `current_node` for path completion.
+        checked_nodes: set[tuple[int, int]] = set()
+        nodes_to_check: deque[tuple[int, int]] = deque((current_node,))
+
+        # TODO: Replace with find next unexplored node method.
+        while nodes_to_check:
+            current_node = nodes_to_check.pop()
+            visited = current_node in self._known_node_directions
+            completed_directions_number = len(self._paths[current_node])
+
+            if not (
+                visited
+                and len(self._known_node_directions[current_node])
+                    == completed_directions_number
+                or not visited
+                and completed_directions_number == len(Direction)
+            ):
+                # Found not fully explored node.
+                return False
+
+            # Add all unchecked nodes to our checklist.
+            nodes_to_check.extend(
+                node
+                for node, _, _ in self._paths[current_node].values()
+                if node not in checked_nodes
+            )
+            checked_nodes.add(current_node)
+
+        # All nodes have been checked and no unchecked node was found.
+        return True
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def add_path(
@@ -39,7 +95,7 @@ class Planet:
         start: tuple[tuple[int, int], Direction],
         target: tuple[tuple[int, int], Direction],
         weight: Weight,
-    ):
+    ) -> None:
         """Add a bidirectional path from `start` to `end` with `weight`.
 
         Example:
@@ -49,12 +105,24 @@ class Planet:
         for (start, start_direction), (target, target_direction) \
                 in ((start, target), (target, start)):
             try:
-                record = self.paths[start]
+                record = self._paths[start]
             except KeyError:
                 # No prior paths at node `start` registered.
-                record = self.paths[start] = {}
+                record = self._paths[start] = {}
 
             record[start_direction] = (target, target_direction, weight)
+
+    def set_available_node_directions(
+        self,
+        node: tuple[int, int],
+        directions: set[Direction],
+    ) -> None:
+        """Set which `directions` exist at `node`.
+
+        This method should be called after the robot has scanned the
+        paths at `node`, as it is assumed to have visited it.
+        """
+        self._known_node_directions[node] = directions
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def get_paths(self) -> dict[
@@ -81,7 +149,7 @@ class Planet:
                 ...
             }
         """
-        return self.paths
+        return self._paths
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def shortest_path(
@@ -103,7 +171,7 @@ class Planet:
         None
         """
         for node in (start, target):
-            if node not in self.paths:
+            if node not in self._paths:
                 # We cannot know a path as we don't even know the node.
                 return None
 
@@ -152,7 +220,7 @@ class Planet:
 
             # Add or update this node's neighbors if shortest path to
             # them not already found and the path to them is not blocked.
-            for direction, (neighbor, _, weight) in self.paths[min_node].items():
+            for direction, (neighbor, _, weight) in self._paths[min_node].items():
                 if neighbor not in shortest_paths and weight != BLOCKED:
                     new_record = (min_weight + weight, min_node, direction)
                     try:
