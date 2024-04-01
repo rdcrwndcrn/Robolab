@@ -89,7 +89,7 @@ class ColourCalibration(State):
         self.robot.colors['black'] = [19.23, 22.58, 6.13]
         self.robot.colors['white'] = [240.02, 258.32, 82.18]
         # measuring colour and saving them in dict
-        self.measure_colours()  # TODO we need it in exam
+        self.measure_colours()
         # calc offset for PID
         self.calc_off()
         # for Odo
@@ -102,7 +102,7 @@ class ColourCalibration(State):
         # calling the switch method of robot class which needs new state as an instance
         self.robot.switch_state(next_state)
 
-    # colour calibration with robo buttons and display, for calc offset - TODO test it
+    # colour calibration with robo buttons and display, for calc offset - TODO not really working, values inputs there, but display does not show anything
     def measure_colours(self):
         for x in self.robot.calibrated_colors:
             # so we cant forget which colour we start with
@@ -479,7 +479,7 @@ class Node(State):
         # the motor position starts at 0 and after the scan it has 1000
         # if line found, then position gets noted in lines
         # idea: make 4 intervals and if at least one value is in it, there is a line
-        # set all from previous node to false TODO change to global compass Odometry
+        # set all from previous node to false
         # whole thing needs to rotate for self.alpha + 180
         for x in self.lines:
             if x < 150:
@@ -502,7 +502,16 @@ class Node(State):
                 # north
                 self.north.append(x)
                 self.nodes[0] = True
-        print(f'{self.nodes=}')
+        # says how many intervals we need to rotate, for example if incoming at west 270 its looking to the east before
+        # and after scanning that's 90, and it needs to rotate 1 interval, that is from east to north
+        swap = int(((self.alpha + 180) % 360) / 90)
+        # swap all values 1 interval in contrary to clock direction every iteration
+        for i in range(swap):
+            self.north, self.east, self.south, self.west = self.east, self.south, self.west, self.north
+            # same for where the lines are
+            self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3] = (self.nodes[1], self.nodes[2], self.nodes[3],
+                                                                          self.nodes[0])
+        print(f'{self.nodes=}')  # TODO add connection to planet
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
