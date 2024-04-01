@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
-from collections import deque
 from enum import IntEnum, unique
 from math import inf
 from random import choice
@@ -29,6 +28,8 @@ BLOCKED: Final[Weight] = -1
 
 class Planet:
     """The planet map representation with nodes, paths and their weights."""
+
+    __slots__ = ("_paths", "_known_node_directions")
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def __init__(self) -> None:
