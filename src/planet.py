@@ -3,6 +3,7 @@
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
 from enum import IntEnum, unique
 from math import inf
+from random import choice
 from typing import Final, Optional
 
 
@@ -22,16 +23,46 @@ Value:   `-1` if blocked path
         > `0` for all other paths
         never `0`
 """
-BLOCKED: Final = -1
+BLOCKED: Final[Weight] = -1
 
 
 class Planet:
     """The planet map representation with nodes, paths and their weights."""
 
+    __slots__ = ("_paths", "_known_node_directions")
+
     # DO NOT EDIT THE METHOD SIGNATURE
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the data structure."""
-        self.paths = {}
+        # The registered existing paths on the planet, probably incomplete.
+        self._paths: dict[
+            tuple[int, int],
+            dict[
+                Direction,
+                tuple[tuple[int, int], Direction, Weight]
+            ]
+        ] = {}
+        # The directions available at all visited nodes.
+        self._known_node_directions: dict[
+            tuple[int, int],
+            set[Direction]
+        ] = {}
+
+    def exploration_completed(self, current_node: tuple[int, int]) -> bool:
+        """Return whether planet exploration is completed.
+
+        This checks whether all reachable nodes from the `current_node`
+        have full path information, i. e. all the paths to them have
+        either been visited or the robot has received information about
+        them from the server.
+
+        Only useful after an initial call to `add_path` or
+        `set_available_node_directions` as the `current_node` is assumed
+        to be known on the map, else a `KeyError` is raised.
+        """
+        # Check whether there is no reachable unexplored node left.
+        # TODO: Check whether really needed (also included in `next_direction`).
+        return self._shortest_path(current_node) is None
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def add_path(
@@ -39,7 +70,7 @@ class Planet:
         start: tuple[tuple[int, int], Direction],
         target: tuple[tuple[int, int], Direction],
         weight: Weight,
-    ):
+    ) -> None:
         """Add a bidirectional path from `start` to `end` with `weight`.
 
         Example:
@@ -49,12 +80,24 @@ class Planet:
         for (start, start_direction), (target, target_direction) \
                 in ((start, target), (target, start)):
             try:
-                record = self.paths[start]
+                record = self._paths[start]
             except KeyError:
                 # No prior paths at node `start` registered.
-                record = self.paths[start] = {}
+                record = self._paths[start] = {}
 
             record[start_direction] = (target, target_direction, weight)
+
+    def set_available_node_directions(
+        self,
+        node: tuple[int, int],
+        directions: set[Direction],
+    ) -> None:
+        """Set which `directions` exist at `node`.
+
+        This method should be called after the robot has scanned the
+        paths at `node`, as it is assumed to have visited it.
+        """
+        self._known_node_directions[node] = directions
 
     # DO NOT EDIT THE METHOD SIGNATURE
     def get_paths(self) -> dict[
@@ -72,7 +115,7 @@ class Planet:
                 (0, 3): {
                     Direction.NORTH: ((0, 3), Direction.WEST, 1),
                     Direction.EAST: ((1, 3), Direction.WEST, 2),
-                    Direction.WEST: ((0, 3), Direction.NORTH, 1)
+                    Direction.WEST: ((0, 3), Direction.NORTH, 1),
                 },
                 (1, 3): {
                     Direction.WEST: ((0, 3), Direction.EAST, 2),
@@ -81,34 +124,95 @@ class Planet:
                 ...
             }
         """
-        return self.paths
+        return self._paths
 
-    # DO NOT EDIT THE METHOD SIGNATURE
-    def shortest_path(
+    def is_completely_explored(self, node: tuple[int, int]) -> bool:
+        """Return whether the given `node` is fully explored.
+
+        This checks whether `node` was already visited, so the number of
+        paths from it is known, and this number matches the number of
+        already completed paths at this node (either by the robot itself
+        or with the help of the server) or if it was not visited, but
+        all 4 possible directions are already fully explored, so a visit
+        is unnecessary.
+
+        It is assumed that `node` is valid, else a `KeyError` will be
+        raised.
+        """
+        return (
+            (visited := node in self._known_node_directions)
+            and len(self._known_node_directions[node])
+                == (completed_directions_number := len(self._paths[node]))
+            or not visited
+            and completed_directions_number == len(Direction)
+        )
+
+    def next_direction(
         self,
         start: tuple[int, int],
-        target: tuple[int, int],
-    ) -> Optional[list[tuple[tuple[int, int], Direction]]]:
-        """Return (one of) the shortest known path between two nodes.
+        target: Optional[tuple[int, int]] = None
+    ) -> Optional[Direction]:
+        """Return the next direction to head for from `start`.
 
-        If there is no known path between the two nodes, returns `None`.
-        If we already are at the `target` node, i. e. `start` is the
-        same as `target`, returns an empty list `[]`.
+        If `target` is not `None`, this tries to head to it as fast as
+        possible, if it is `None`, the direction to the next unexplored
+        path or the next unexplored direction is returned. If none of
+        the above are found, `None` is returned, signalling the
+        completion of exploration.
 
-        Examples:
-
-        >>> shortest_path((0,0), (2,2))
-        [((0, 0), Direction.EAST), ((1, 0), Direction.NORTH)]
-        >>> shortest_path((0,0), (1,2))
-        None
+        Both `start` and `target` (if not `None`) are assumed to be
+        valid coordinates, else a `KeyError` will be raised. Also both
+        coordinates are assumed, if given, to be different, else an
+        `IndexError` will be raised.
         """
-        for node in (start, target):
-            if node not in self.paths:
-                # We cannot know a path as we don't even know the node.
+        if target is None and not self.is_completely_explored(start):
+            # Choose randomly one of the remaining unexplored
+            # directions.
+            return choice([
+                direction
+                for direction in self._known_node_directions[start]
+                if direction not in self._paths[start]
+            ])
+        else:
+            shortest_path = self._shortest_path(start, target)
+
+            if shortest_path is None and target is not None:
+                # `target` not yet reachable, continue exploring normally.
+                shortest_path = self._shortest_path(start)
+
+            # Recheck in case `shortest_path` got updated.
+            if shortest_path is None:
+                # No direction found, exploration completed.
                 return None
+            # Assume the case `[]` won't happen.
+            else:
+                # Return the direction towards our next target.
+                return shortest_path[0][1]
+
+    def _shortest_path(
+        self,
+        start: tuple[int, int],
+        target: Optional[tuple[int, int]] = None
+    ) -> Optional[list[tuple[tuple[int, int], Direction]]]:
+        """Return the shortest path either to `target` or the next unexplored node.
+
+        If `target` is `None`, returns the shortest path from `start` to
+        the next unexplored node, else the shortest path from `start` to
+        `target`.
+
+        If the `target` or the next unexplored node is the same as
+        `start`, returns `[]`, else if no path is found, returns `None`.
+        """
+        # Precomputation to improve performance slightly.
+        target_is_none = target is None
+
+        if (start not in self._paths
+                or not target_is_none and target not in self._paths):
+            # We cannot know a path as we don't even know the node.
+            return None
 
         # Stores the resulting predecessor nodes forming the shortest path to
-        # the current node.
+        # the desired target node.
         shortest_paths: dict[
             tuple[int, int],
             tuple[Optional[tuple[int, int]], Optional[Direction]]
@@ -145,14 +249,21 @@ class Planet:
             # ... and remove it from our checklist.
             del nodes_to_check[min_node]
 
-            # If this node is our target, we have found a shortest path
-            # and are finished.
-            if min_node == target:
+            min_node_paths = self._paths[min_node]
+
+            # If this node is our target or meets our requirements, we
+            # have found a shortest path and are finished.
+            if (not target_is_none and min_node == target
+                    or target_is_none
+                    and not self.is_completely_explored(min_node)):
+                # Set target to current node in case we are searching
+                # for the next unexplored node.
+                target = min_node
                 break
 
             # Add or update this node's neighbors if shortest path to
             # them not already found and the path to them is not blocked.
-            for direction, (neighbor, _, weight) in self.paths[min_node].items():
+            for direction, (neighbor, _, weight) in min_node_paths.items():
                 if neighbor not in shortest_paths and weight != BLOCKED:
                     new_record = (min_weight + weight, min_node, direction)
                     try:
@@ -164,7 +275,7 @@ class Planet:
                             # Only update if weight is smaller.
                             nodes_to_check[neighbor] = new_record
         else:
-            # Target not found (`while` loop not aborted).
+            # No target found (`while` loop not aborted).
             return None
 
         # Reconstruct shortest path.
@@ -176,3 +287,24 @@ class Planet:
             target = predecessor[0]
 
         return shortest_path
+
+    # DO NOT EDIT THE METHOD SIGNATURE
+    def shortest_path(
+        self,
+        start: tuple[int, int],
+        target: tuple[int, int],
+    ) -> Optional[list[tuple[tuple[int, int], Direction]]]:
+        """Return (one of) the shortest known path between two nodes.
+
+        If there is no known path between the two nodes, returns `None`.
+        If we already are at the `target` node, i. e. `start` is the
+        same as `target`, returns an empty list `[]`.
+
+        Examples:
+
+        >>> shortest_path((0,0), (2,2))
+        [((0, 0), Direction.EAST), ((1, 0), Direction.NORTH)]
+        >>> shortest_path((0,0), (1,2))
+        None
+        """
+        return self._shortest_path(start, target)

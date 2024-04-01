@@ -155,6 +155,13 @@ CLIENT_MESSAGE_RECORD_TYPES = {
 class Communication:
     """MQTT communication client for a planet discovery robot."""
 
+    __slots__ = (
+        "message_handlers",
+        "_client",
+        "_logger",
+        "_topic_planet",
+    )
+
     # DO NOT EDIT THE METHOD SIGNATURE
     def __init__(self, mqtt_client: Client, logger: Logger) -> None:
         """Initialize communication, connect to server, subscribe."""
@@ -170,7 +177,7 @@ class Communication:
         # The callback takes --- if the message type is recognized and in
         # `ServerMessageType` --- the corresponding record type, else it
         # should take whatever the server sends as payload in this message.
-        self.message_handlers: (Mapping[
+        self.message_handlers: Mapping[
             Union[ServerMessageType, str],
             Callable[
                 [
@@ -181,7 +188,7 @@ class Communication:
                 ],
                 Any,
             ],
-        ]) = {}
+        ] = {}
 
         self._client.enable_logger()    # DEBUG
 
@@ -258,7 +265,7 @@ class Communication:
         """
         if not isinstance(record, CLIENT_MESSAGE_RECORD_TYPES[message_type]):
             self._logger.error(
-                f"Invalid {record = } for {message_type = } in"
+                f"Invalid `{record = }` for `{message_type = }` in"
                 f" `{self.__class__.__name__}.send_message_type`"
             )
             return

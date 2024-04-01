@@ -156,8 +156,10 @@ class TestRoboLabPlanet(unittest.TestCase):
         self.assertEqual(Planet().get_paths(), {})
 
     def test_already_at_target(self):
-        """Check the case were start and end node are the same."""
+        """Check the case were start and end nodes are the same."""
         self.assertEqual(self.planet.shortest_path((0, 0), (0, 0)), [])
+        self.assertEqual(self.planet.shortest_path((5, 1), (5, 1)), [])
+        self.assertEqual(self.planet.shortest_path((2, 2), (2, 2)), [])
 
     def test_target(self):
         """Check that the shortest-path algorithm implemented works.
