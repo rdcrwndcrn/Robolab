@@ -1,17 +1,19 @@
-from typing import Any, Callable, Union
-from ev3dev import ev3
+from dataclasses import asdict
 import math
-from functools import wraps
 from logging import Logger
 from queue import SimpleQueue, Empty
 import time
+from typing import Any, Callable, Optional, Union
 
+from ev3dev import ev3
 from paho.mqtt.client import Client
 
 from communication import (
-    ClientMessageType, Communication, DirectionRecord, MessageRecord,
-    PlanetRecord, ServerMessageType, TargetRecord, WeightedPathRecord,
+    ClientMessageType, Communication, DirectionRecord, EndRecord, MessageRecord,
+    PathRecord, PathStatus, PlanetRecord, ServerMessageType, StartRecord,
+    TargetRecord, WeightedPathRecord,
 )
+from planet import BLOCKED, Direction, Planet
 
 
 # class to switch between States
@@ -20,7 +22,8 @@ class Robot:
         self.client = client
         self.logger = logger
         # Communication is initialized at first node.
-        self.communication = None
+        self.communication: Optional[Communication] = None
+        self.planet = Planet()
         # for switching states
         # attribute where current states gets saved
         self.state = None
@@ -56,6 +59,9 @@ class Robot:
         self.start_compass = 0
         # if path is blocked odo does not need to calc anything
         self.path_blocked = False
+        # The coordinates and direction of last node; first set after receiving
+        # `planet` message.
+        self.start_record: Optional[StartRecord] = None
 
     def set_start_state(self, state):
         # for switching to start state
@@ -378,6 +384,8 @@ class Node(State):
                 dict,
             ]
         ] = SimpleQueue()
+        # The corrected information received from server.
+        self.corrected_record: Optional[EndRecord] = None
         # for node scanning
         self.lines = []
         # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
@@ -399,10 +407,10 @@ class Node(State):
         print("starting node state")
         # node methods:
         # odometry
-        self.round_odo()
+        x, y, direction = self.round_odo()
         # move Robo to node mid
         self.move_to_position(350, 350, 240, 240)
-        self.open_communication()
+        self.open_communication(x, y, direction)
         # just for testing
         # interval = self.i_length
         # k_i = self.k_i
@@ -457,7 +465,7 @@ class Node(State):
         return x, y, global_direction_change
 
     # to round x and y from odometry and using red blue node rule for higher accuracy
-    def round_odo(self):
+    def round_odo(self) -> tuple[int, int, Direction]:
         # calc and get odo values
         x, y, alpha = self.odometry()
         # converting scale to cm and degree
@@ -483,6 +491,8 @@ class Node(State):
         # after he found the next node, but we need the incoming direction global compass thingy angle
         self.compass = (self.robot.start_compass + alpha + 180) % 360  # cyclic group
         print(f'{x=} {y=} {self.compass=}')
+
+        return x, y, self.compass
 
     # move to position
     def move_to_position(self, v_l, v_r, s_l, s_r):
@@ -606,7 +616,7 @@ class Node(State):
         while self.robot.m_right.is_running and self.robot.m_left.is_running:
             time.sleep(0.1)
 
-    def open_communication(self) -> None:
+    def open_communication(self, x: int, y: int, direction: Direction) -> None:
         """Set up message handlers, send and set communication timeout.
 
         At the first node, set up communication and submit
@@ -649,7 +659,26 @@ class Node(State):
             self.robot.communication.send_message_type(ClientMessageType.READY)
         else:
             self.robot.communication.message_handlers = message_handlers
-            # TODO: Publish path message.
+            self.robot.communication.send_message_type(
+                ClientMessageType.PATH,
+                PathRecord(
+                    **asdict(self.robot.start_record),
+                    endX=x,
+                    endY=y,
+                    endDirection=direction,
+                    pathStatus=(
+                        PathStatus.BLOCKED
+                        if self.robot.path_blocked
+                        else PathStatus.FREE
+                    ),
+                ),
+            )
+
+        # Handle initial bunch of messages to receive `path` or `planet`
+        # messages.
+        self.corrected_record = None
+        while self.corrected_record is None:
+            self.handle_messages(timeout=0.1)
 
     def handle_messages(self, timeout: float = 0) -> None:
         """Wait at most `timeout` seconds for new messages and handle them."""
@@ -669,17 +698,54 @@ class Node(State):
         self.robot.communication.message_handlers = {}
 
     def _handle_planet_message(self, planet_record: PlanetRecord) -> None:
-        # TODO: Set start coordinates and direction.
+        self.corrected_record = EndRecord(
+            endX=planet_record.startX,
+            endY=planet_record.startY,
+            # `startOrientation` is the direction where the robot currently
+            # is looking to, but `endDirection` is the direction the path
+            # we came from goes to, so save the opposite direction.
+            endDirection=planet_record.startOrientation.opposite(),
+        )
+        # The path we came from is most likely not to be used again in
+        # the other direction, so mark it as blocked.
+        origin = (
+            (self.corrected_record.endX, self.corrected_record.endY),
+            self.corrected_record.endDirection,
+        )
+        self.robot.planet.add_path(origin, origin, BLOCKED)
+
+    def _handle_path_message(
+        self,
+        weighted_path_record: WeightedPathRecord,
+    ) -> None:
+        self.corrected_record = EndRecord(
+            endX=weighted_path_record.endX,
+            endY=weighted_path_record.endY,
+            endDirection=weighted_path_record.endDirection,
+        )
+        self._handle_path_unveiled_message(weighted_path_record)
+
+    def _handle_path_select_message(
+        self,
+        direction_record: DirectionRecord,
+    ) -> None:
         pass
 
-    def _handle_path_message(self, weighted_path_record: WeightedPathRecord) -> None:
-        pass
-
-    def _handle_path_select_message(self, direction_record: DirectionRecord) -> None:
-        pass
-
-    def _handle_path_unveiled_message(self, weighted_path_record: WeightedPathRecord) -> None:
-        pass
+    def _handle_path_unveiled_message(
+        self,
+        weighted_path_record: WeightedPathRecord,
+    ) -> None:
+        self.robot.planet.add_path(
+            (
+                (weighted_path_record.startX, weighted_path_record.startY),
+                weighted_path_record.startDirection,
+            ),
+            (
+                (weighted_path_record.endX, weighted_path_record.endY),
+                weighted_path_record.endDirection,
+            ),
+            weighted_path_record.pathWeight,
+        )
 
     def _handle_target_message(self, target_record: TargetRecord) -> None:
         pass

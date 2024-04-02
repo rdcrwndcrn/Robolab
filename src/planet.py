@@ -15,6 +15,10 @@ class Direction(IntEnum):
     SOUTH = 180
     WEST = 270
 
+    def opposite(self) -> "Direction":
+        """Return the opposite direction of current value."""
+        return (self.value + 180) % 360
+
 
 Weight = int
 """Weight of a given path (received from the server).
