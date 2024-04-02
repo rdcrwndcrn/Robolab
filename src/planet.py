@@ -155,10 +155,10 @@ class Planet:
         """Return the next direction to head for from `start`.
 
         If `target` is not `None` and is known how to reach, this tries
-        to head to it as fast as possible, else, the
-        direction to the next unexplored path or the next unexplored
-        direction is returned. If none of the above are found, `None` is
-        returned, signalling the completion of exploration.
+        to head to it as fast as possible, else, the direction to the
+        next unexplored path or the next unexplored direction is
+        returned. If none of the above are found, `None` is returned,
+        signalling the completion of exploration.
 
         Both `start` and `target` (if not `None`) are assumed to be
         valid coordinates, else a `KeyError` will be raised. Also both
