@@ -39,6 +39,8 @@ class Robot:
         self.last_node_colour = ''
         # for calculating the entry global compass direction
         self.start_compass = 0
+        # if path is blocked odo does not need to calc anything
+        self.path_blocked = False
 
     def set_start_state(self, state):
         # for switching to start state
@@ -86,10 +88,10 @@ class ColourCalibration(State):
         # running Colour calibration methods
         print("starting ColourCalibration")
         # hardcoded for faster testing, will be deleted for exam
-        self.robot.colors['black'] = [19.23, 22.58, 6.13]
-        self.robot.colors['white'] = [240.02, 258.32, 82.18]
+        self.robot.colors['black'] = [46.38, 45.25, 11.16]
+        self.robot.colors['white'] = [280.72, 273.67, 95.07]
         # measuring colour and saving them in dict
-        self.measure_colours()
+        # self.measure_colours()
         # calc offset for PID
         self.calc_off()
         # for Odo
@@ -97,27 +99,31 @@ class ColourCalibration(State):
 
         # switch to the follower state by creating follower instance
         # uses robot instance which lies in the robot attribute in Metaclass
-        # TODO - Why save the same robot instance again?
         next_state = Follower(self.robot)
         # calling the switch method of robot class which needs new state as an instance
         self.robot.switch_state(next_state)
 
-    # colour calibration with robo buttons and display, for calc offset - TODO not really working, values inputs there, but display does not show anything
+    # colour calibration with robo buttons and display, for calc offset - TODO not really working, values inputs
+    #  there, but display does not show anything
     def measure_colours(self):
         for x in self.robot.calibrated_colors:
-            # so we cant forget which colour we start with
-            self.screen.draw.text((0, 0), f'Press any button to read {x}')
-            self.screen.update()
             # to wait for a button input
+            input(f'Press enter to read {x}')
+
+            '''
             while True:
+                # so we cant forget which colour we start with
+                self.screen.draw.text((0, 0), f'Press any button to read {x}')
+                self.screen.update()
                 if self.btn.any():
                     # so it won't detect one input as two and measure black and white at the same spot
                     time.sleep(1)
                     break
-                time.sleep(0.1)
+                    '''
             # getting and saving rgb-values
             self.robot.colors[x] = self.calibration()
             print(self.robot.colors[x])
+
         # telling us that everything worked
         self.screen.draw.text((0, 0), f'Im ready. Put me on!')
         self.screen.update()
@@ -187,6 +193,7 @@ class Follower(State):
 
     def run(self):
         # line following loop
+        self.robot.path_blocked = False
         input("to start Follower press enter")
         self.robot.motor_prep()
         try:
@@ -197,6 +204,7 @@ class Follower(State):
                 self.check_for_node(r, g, b)
                 # turn if bottle is less than 150 mm before Rob
                 if self.robot.us.value() < 150:
+                    self.robot.path_blocked = True
                     self.turn(175)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.robot.convert_to_grey(r, g, b)
@@ -225,10 +233,9 @@ class Follower(State):
                 if self.i % 17 == 0:
                     self.i = 0
                     self.c = 0
-                    # logging motor position for odo
-                    print('log motor position')
-                    self.robot.odo_motor_positions.append((self.robot.m_left.position, self.robot.m_right.position))
                 self.i += 1
+                # logging motor position for odo
+                self.robot.odo_motor_positions.append((self.robot.m_left.position, self.robot.m_right.position))
 
         finally:
             self.robot.motor_prep()
@@ -245,6 +252,10 @@ class Follower(State):
                 self.robot.motor_prep()
                 # self.turn(7)
                 # save colour for odo
+                print('found red node')
+                # saving last node colour before overwriting curren node colour
+                self.robot.last_node_colour = self.robot.current_node_colour
+                # overwriting current node colour for odo
                 self.robot.current_node_colour = 'red'
                 # calling the switch method of robot class which needs new state as an instance
                 self.robot.switch_state(next_state)
@@ -256,11 +267,12 @@ class Follower(State):
                 self.robot.motor_prep()
                 # self.turn(4)
                 # save colour for odo
+                print('found red node')
                 self.robot.current_node_colour = 'blue'
                 # calling the switch method of robot class which needs new state as an instance
                 self.robot.switch_state(next_state)
 
-    # basic turn function with degrees  TODO add functionality so Odo does not need to get calculated
+    # basic turn function with degrees
     def turn(self, degree):
         self.robot.motor_prep()
         # opposite wheel directions are twice as fast
@@ -353,7 +365,7 @@ class Node(State):
         print("starting node state")
         # node methods:
         # odometry
-
+        self.round_odo()
         # move Robo to node mid
         self.move_to_position(350, 350, 240, 240)
         # just for testing
@@ -372,11 +384,11 @@ class Node(State):
         self.degree_to_celestial_direction()
         # turn to the chosen line to continue
         self.choose_line()
-        print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
-        print(f'{len(self.robot.odo_motor_positions)=}')
+        # print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
+        # print(f'{len(self.robot.odo_motor_positions)=}')
         # clear motor position array for odo
         self.robot.odo_motor_positions.clear()
-        print(f'{len(self.robot.odo_motor_positions)=}')
+        # print(f'{len(self.robot.odo_motor_positions)=}')
 
         # back to line following
         next_state = Follower(self.robot)
@@ -389,7 +401,6 @@ class Node(State):
         global_direction_change = 0
         # just for debugging
         angles = []
-        print(self.robot.odo_motor_positions)
         for i, (left, right) in enumerate(self.robot.odo_motor_positions[1:]):
             d_l = left - self.robot.odo_motor_positions[i - 1][0]
             d_r = right - self.robot.odo_motor_positions[i - 1][1]
@@ -404,20 +415,23 @@ class Node(State):
             y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
         # just for debugging
-        histogram(angles)
+        # histogram(angles)
         return x, y, global_direction_change
 
     # to round x and y from odometry and using red blue node rule for higher accuracy
     def round_odo(self):
         # calc and get odo values
         x, y, alpha = self.odometry()
-        # converting scale to cm
+        # converting scale to cm and degree
         alpha = alpha * 180 / math.pi
         x = x / 360 * 3.2 * math.pi
         y = y / 360 * 3.2 * math.pi
+        print(f'before correction {x=}, {y=}, alpha={alpha}')
         # drove orthogonal that means one coordinate is zero, probably the smaller one
-        if self.robot.last_node_colour != self.robot.current_node_colour:
+        if (self.robot.last_node_colour == 'blue' and self.robot.current_node_colour == 'red' or
+                self.robot.last_node_colour == 'red' and self.robot.current_node_colour == 'blue'):
             if x > y:
+                print(f'we drove orthogonal, rounding one value to zero...')
                 y = 0
             else:
                 x = 0
@@ -430,7 +444,7 @@ class Node(State):
         # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
         # after he found the next node, but we need the incoming direction global compass thingy angle
         self.compass = (self.robot.start_compass + alpha + 180) % 360  # cyclic group
-        return x, y, self.compass
+        print(f'{x=} {y=} {self.compass=}')
 
     # move to position
     def move_to_position(self, v_l, v_r, s_l, s_r):
@@ -457,8 +471,8 @@ class Node(State):
         # opposite wheel directions are twice as fast
         ticks = 1840
         # ticks the wheels should to do
-        self.robot.m_left.position_sp = 1 / 2 * ticks
-        self.robot.m_right.position_sp = -1 / 2 * ticks
+        self.robot.m_left.position_sp = -1 / 2 * ticks
+        self.robot.m_right.position_sp = 1 / 2 * ticks
         # ticks per second, up to 1050
         self.robot.m_left.speed_sp = 250
         self.robot.m_right.speed_sp = 250
@@ -470,9 +484,9 @@ class Node(State):
             r, g, b, _ = self.robot.cs.bin_data("hhhh")
             # should continue if he found the line again
             found_line = self.robot.convert_to_grey(r, g, b)
-            if found_line > self.robot.offset:  # TODO change > to < if line black
+            if found_line < self.robot.offset:
                 # print(f'{found_line=}')
-                self.lines.append(self.robot.m_left.position)
+                self.lines.append(self.robot.m_right.position)
 
     # function to turn the motor.position into a compass
     def degree_to_celestial_direction(self):
@@ -487,24 +501,27 @@ class Node(State):
                 self.north.append(x)
                 self.nodes[0] = True
             elif x < 380:
-                # east
-                self.east.append(x)
-                self.nodes[1] = True
+                # west
+                self.west.append(x)
+                self.nodes[3] = True
             elif x < 610:
                 # south
                 self.south.append(x)
                 self.nodes[2] = True
             elif x < 840:
-                # west
-                self.west.append(x)
-                self.nodes[3] = True
+                # east
+                self.east.append(x)
+                self.nodes[1] = True
             elif x < 950:
                 # north
                 self.north.append(x)
                 self.nodes[0] = True
         # says how many intervals we need to rotate, for example if incoming at west 270 its looking to the east before
         # and after scanning that's 90, and it needs to rotate 1 interval, that is from east to north
-        swap = int(((self.alpha + 180) % 360) / 90)
+        swap = int((self.alpha % 360) / 90)
+        print(f'{swap=}')
+        print(f'{self.nodes=}')
+        print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
         # swap all values 1 interval in contrary to clock direction every iteration
         for i in range(swap):
             self.north, self.east, self.south, self.west = self.east, self.south, self.west, self.north
@@ -539,8 +556,8 @@ class Node(State):
     def mp_turn(self, motor_position):
         # for good measures
         self.robot.motor_prep()
-        self.robot.m_left.position_sp = motor_position
-        self.robot.m_right.position_sp = - motor_position
+        self.robot.m_left.position_sp = -motor_position
+        self.robot.m_right.position_sp = motor_position
         # ticks per second, up to 1050
         self.robot.m_left.speed_sp = 300
         self.robot.m_right.speed_sp = 300
