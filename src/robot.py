@@ -241,10 +241,10 @@ class Follower(State):
                 # calc derivative
                 derivative = err - self.last_err
                 # calc adjustments for little correction turns of wheels
-                turns = self.robot.k_p * err + self.robot.k_i * integral + self.robot.k_d * derivative    # TODO change back
+                turns = self.robot.k_p * err + self.robot.k_i * integral + self.robot.k_d * derivative  # TODO change back
                 # continuing with adjusted speed
                 new_speed_left = self.robot.t_p + turns - abs(integral) * self.robot.ki  # TODO change back
-                new_speed_right = self.robot.t_p - turns - abs(integral) * self.robot.ki    # TODO change back
+                new_speed_right = self.robot.t_p - turns - abs(integral) * self.robot.ki  # TODO change back
                 self.speed(new_speed_left, new_speed_right)
                 # for derivative in next interation
                 self.last_err = err
@@ -277,7 +277,7 @@ class Follower(State):
                 self.robot.motor_prep()
 
                 # just for testing
-                interval = self.robot.i_length    # TODO change back
+                interval = self.robot.i_length  # TODO change back
                 k_p = self.robot.k_p
                 k_i = self.robot.k_i
                 ki = self.robot.ki  # TODO change back
@@ -412,9 +412,9 @@ class Node(State):
                     ],
                     Any,
                 ],
-                # The positional arguments to be passed to it.
+                    # The positional arguments to be passed to it.
                 tuple,
-                # The keyword arguments to be passed to it.
+                    # The keyword arguments to be passed to it.
                 dict,
             ]
         ] = SimpleQueue()
@@ -445,7 +445,7 @@ class Node(State):
         # odometry
         x, y, direction = self.round_odo()
         # move Robo to node mid
-        self.move_to_position(300, 300, 130, 130)
+        self.move_to_position(300, 300, 145, 145)
         self.open_communication(x, y, direction)
         self.alpha = self.corrected_record.endDirection
         # just for testing
@@ -496,7 +496,7 @@ class Node(State):
     def odometry(self):
         x = 0
         y = 0
-        global_direction_change = self.robot.start_record.startDirection
+        global_direction_change = 0
         # just for debugging
         angles = []
         for i, (left, right) in enumerate(self.robot.odo_motor_positions[1:]):
@@ -521,8 +521,8 @@ class Node(State):
         # calc and get odo values
         # if path blocked -> returned to starting position
         if self.robot.path_blocked:
-            x, y, alpha = (self.robot.start_record.startX, self.robot.start_record.startY,
-                           self.robot.start_record.startDirection)
+            x, y, self.compass = (self.robot.start_record.startX, self.robot.start_record.startY,
+                                  self.robot.start_record.startDirection)
         else:
             x, y, alpha = self.odometry()
             # converting scale to cm and degree
@@ -540,7 +540,6 @@ class Node(State):
             x = round(-x / 50) + self.robot.start_record.startX
             y = round(y / 50) + self.robot.start_record.startY
             alpha = round(-alpha / 90) * 90
-            '''
             if self.robot.start_compass == 90:
                 # east
                 y, x = -x, y
@@ -549,14 +548,12 @@ class Node(State):
                 y, x = -y, -x
             elif self.robot.start_compass == 270:
                 # west
-                y, x = x, y
-            '''
-        # 0 for north, 90 for east, 180 for south 270 for west
-        # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
-        # after he found the next node, but we need the incoming direction global compass thingy angle
-        self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
-        print(f'{x=} {y=} {self.compass=} {self.alpha=}')
-
+                y, x = x, -y
+            # 0 for north, 90 for east, 180 for south 270 for west
+            # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
+            # after he found the next node, but we need the incoming direction global compass thingy angle
+            self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
+            print(f'{x=} {y=} {self.compass=} {self.alpha=}')
         return x, y, self.compass
 
     # move to position
@@ -692,6 +689,7 @@ class Node(State):
         `ClientMessageType.PATH` message including current estimated
         node information.
         """
+
         # A function to ensure each new message is enqueued with the
         # appropriate handler for synchronous processing.
         def handler_enqueuer(handler):
@@ -699,6 +697,7 @@ class Node(State):
                 # Enqueue the handler with its desired arguments for
                 # later synchronous execution.
                 self.message_queue.put((handler, args, kwargs))
+
             return enqueue
 
         # Create a message handler registry, where each handler is
@@ -784,8 +783,8 @@ class Node(State):
         self.robot.planet.add_path(origin, origin, BLOCKED)
 
     def _handle_path_message(
-        self,
-        weighted_path_record: WeightedPathRecord,
+            self,
+            weighted_path_record: WeightedPathRecord,
     ) -> None:
         self.corrected_record = EndRecord(
             endX=weighted_path_record.endX,
@@ -795,14 +794,14 @@ class Node(State):
         self._handle_path_unveiled_message(weighted_path_record)
 
     def _handle_path_select_message(
-        self,
-        direction_record: DirectionRecord,
+            self,
+            direction_record: DirectionRecord,
     ) -> None:
         self.selected_direction = direction_record.startDirection
 
     def _handle_path_unveiled_message(
-        self,
-        weighted_path_record: WeightedPathRecord,
+            self,
+            weighted_path_record: WeightedPathRecord,
     ) -> None:
         self.robot.planet.add_path(
             (
