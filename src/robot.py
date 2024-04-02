@@ -52,7 +52,7 @@ class Robot:
         # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
         self.t_p = 220
         # declaring proportional gain
-        self.k_p = 6 * 10 ** -1
+        self.k_p = 5 * 10 ** -1
         # integral gain
         self.k_i = 1 * 10 ** 0
         # second I controller for going slower in slopes 30
@@ -67,7 +67,7 @@ class Robot:
         # list for motor positions
         self.odo_motor_positions = []
         # wheels distance 7,6 cm in ticks
-        self.a = (14.65 * 360) / (3.2 * math.pi)
+        self.a = (14.65 * 360) / (5.6 * math.pi)
         # for rounding
         self.current_node_colour = ''
         self.last_node_colour = ''
@@ -284,11 +284,11 @@ class Follower(State):
                 k_i = self.robot.k_i
                 ki = self.robot.ki  # TODO change back
                 t_p = self.robot.t_p
-                self.robot.k_p = float(input(f'{k_p=} Enter new k_p value ') or "6") * 10 ** -1
-                self.robot.i_length = float(input(f'{interval=} Enter new interval length ').strip() or "40")
-                self.robot.k_i = float(input(f'{k_i=} Enter new k_i value ') or "0") * 10 ** 0
-                self.robot.ki = float(input(f'{ki=} Enter new ki value ') or "24")
-                self.robot.t_p = float(input(f'{t_p=} Enter new t_p value ') or "300")
+                self.robot.k_p = float(input(f'{k_p=} Enter new k_p value ') or "5") * 10 ** -1
+                self.robot.i_length = float(input(f'{interval=} Enter new interval length ').strip() or "60")
+                self.robot.k_i = float(input(f'{k_i=} Enter new k_i value ') or "1") * 10 ** 0
+                self.robot.ki = float(input(f'{ki=} Enter new ki value ') or "12")
+                self.robot.t_p = float(input(f'{t_p=} Enter new t_p value ') or "220")
 
                 self.turn(3)
                 # save colour for odo
@@ -312,11 +312,11 @@ class Follower(State):
                 k_i = self.robot.k_i
                 ki = self.robot.ki
                 t_p = self.robot.t_p
-                self.robot.k_p = float(input(f'{k_p=} Enter new k_p value ') or "6") * 10 ** -1
-                self.robot.i_length = float(input(f'{interval=} Enter new interval length ').strip() or "40")
-                self.robot.k_i = float(input(f'{k_i=} Enter new k_i value ') or "0") * 10 ** 0
-                self.robot.ki = float(input(f'{ki=} Enter new ki value ') or "24")
-                self.robot.t_p = float(input(f'{t_p=} Enter new t_p value ') or "300")
+                self.robot.k_p = float(input(f'{k_p=} Enter new k_p value ') or "5") * 10 ** -1
+                self.robot.i_length = float(input(f'{interval=} Enter new interval length ').strip() or "60")
+                self.robot.k_i = float(input(f'{k_i=} Enter new k_i value ') or "1") * 10 ** 0
+                self.robot.ki = float(input(f'{ki=} Enter new ki value ') or "12")
+                self.robot.t_p = float(input(f'{t_p=} Enter new t_p value ') or "220")
 
                 self.turn(2)
                 # save colour for odo
@@ -524,8 +524,8 @@ class Node(State):
             x, y, alpha = self.odometry()
             # converting scale to cm and degree
             alpha = alpha * 180 / math.pi
-            x = x / 360 * 3.2 * math.pi
-            y = y / 360 * 3.2 * math.pi
+            x = x / 360 * 5.6 * math.pi
+            y = y / 360 * 5.6 * math.pi
             print(f'before correction {x=}, {y=}, {alpha=}')
             # drove orthogonal that means one coordinate is zero, probably the one nearer to zero
             if (self.robot.last_node_colour == 'blue' and self.robot.current_node_colour == 'red' or
