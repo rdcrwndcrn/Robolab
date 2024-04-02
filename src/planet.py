@@ -145,10 +145,11 @@ class Planet:
         It is assumed that `node` is valid, else a `KeyError` will be
         raised.
         """
+        completed_directions_number = len(self._paths[node])
         return (
             (visited := node in self._known_node_directions)
             and len(self._known_node_directions[node])
-                == (completed_directions_number := len(self._paths[node]))
+                == completed_directions_number
             or not visited
             and completed_directions_number == len(Direction)
         )
