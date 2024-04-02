@@ -521,7 +521,8 @@ class Node(State):
         # calc and get odo values
         # if path blocked -> returned to starting position
         if self.robot.path_blocked:
-            x, y, alpha = 0, 0, 180
+            x, y, alpha = (self.robot.start_record.startX, self.robot.start_record.startY,
+                           opposite(self.robot.start_record.startDirection))
         else:
             x, y, alpha = self.odometry()
             # converting scale to cm and degree
