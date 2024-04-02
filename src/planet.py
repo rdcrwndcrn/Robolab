@@ -169,15 +169,16 @@ class Planet:
         Both `start` and `target` (if not `None`) are assumed to be
         valid coordinates, else a `KeyError` will be raised.
         """
-        random_direction = choice([
-            direction
-            for direction in self._known_node_directions[start]
-            if direction not in self._paths[start]
-        ])
+        def random_direction():
+            return choice([
+                direction
+                for direction in self._known_node_directions[start]
+                if direction not in self._paths[start]
+            ])
         if target is None and not self.is_completely_explored(start):
             # Choose randomly one of the remaining unexplored
             # directions.
-            return random_direction
+            return random_direction()
         else:
             shortest_path = self._shortest_path(start, target)
 
@@ -196,7 +197,7 @@ class Planet:
                 # not reachable and the current node is not fully
                 # explored, so choose one of the remaining unexplored
                 # directions of it.
-                return random_direction
+                return random_direction()
             else:
                 # Return the direction towards our next target.
                 return shortest_path[0][1]
