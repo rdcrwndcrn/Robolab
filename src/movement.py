@@ -1,11 +1,24 @@
-import time
+from functools import wraps
+from math import pi, sin, cos
+from time import sleep, monotonic_ns
+
 from ev3dev import ev3
-import math
+
+from communication import (
+    ClientMessageType, Communication, DirectionRecord, MessageRecord,
+    PlanetRecord, ServerMessageType, TargetRecord, WeightedPathRecord,
+)
 
 
 class Robot:
 
-    def __init__(self):
+    def __init__(self, client, logger):
+        self.client = client
+        self.logger = logger
+        # Communication can only start at the first supply station.
+        # The value `None` implies no supply station has been reached so
+        # far and is changed at the first node.
+        self.communication = None
         # for saving colours
         self.colors = {}
         self.calibrated_colors = ['black', 'white']
@@ -112,6 +125,8 @@ class Robot:
         # calculating where the lines are
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
         self.degree_to_celestial_direction()
+        # Wait for communication end
+        self.wait_for_communication_timeout()
         # turn to the chosen line to continue
         self.choose_line()
         # continue following
@@ -240,7 +255,7 @@ class Robot:
         self.m_right.reset()
         self.m_left.stop_action = "brake"
         self.m_right.stop_action = "brake"
-        time.sleep(0.1)
+        sleep(0.1)
 
     # to change the speed on both wheels
     def speed(self, v_l, v_r):
@@ -309,7 +324,7 @@ class Robot:
         # giving them time to execute
         while self.m_right.is_running and self.m_left.is_running:
             self.odo_motor_positions.append((self.m_left.position, self.m_right.position))
-            time.sleep(0.1)
+            sleep(0.1)
             # should continue if he found the line again
             # found_line = 0.3 * cs.raw[0] + 0.59 * cs.raw[1] + 0.11 * cs.raw[2]
             # if found_line > offset:
@@ -425,8 +440,86 @@ class Robot:
                 s = d_r
             else:
                 alpha = (d_r - d_l) / self.a
-                s = (d_r + d_l) / alpha * math.sin(alpha / 2)
-            x += s * math.sin(global_direction_change + alpha / 2)
-            y += s * math.cos(global_direction_change + alpha / 2)
+                s = (d_r + d_l) / alpha * sin(alpha / 2)
+            x += s * sin(alpha / 2 + global_direction_change)
+            y += s * cos(alpha / 2 + global_direction_change)
             global_direction_change += alpha
         return x, y, global_direction_change
+
+    def open_communication(self):
+        """Set up message handlers, send and set communication timeout.
+
+        At the first node, set up communication and submit
+        `ClientMessageType.READY` message, at all other nodes send
+        `ClientMessageType.PATH` message including current estimated
+        node information.
+        """
+        # A wrapper to ensure `self.reset_communication_timeout` is called
+        # at the arrival of any new message.
+        def timeout_wrapper(handler):
+            # This decorator makes the wrapper look like the wrapped function
+            # for better error messages.
+            @wraps(handler)
+            def timeout_wrapped(*args, **kwargs):
+                self.reset_communication_timeout()
+                return handler(*args, **kwargs)
+            return timeout_wrapped
+
+        # Create a message handler registry, where each handler is
+        # decorated with `timeout_wrapper` in order to reset the
+        # communication timeout on each message.
+        message_handlers = {
+            msg_type: timeout_wrapper(handler)
+            for msg_type, handler in {
+                ServerMessageType.PLANET: self._handle_planet_message,
+                ServerMessageType.PATH: self._handle_path_message,
+                ServerMessageType.PATH_SELECT: self._handle_path_select_message,
+                ServerMessageType.PATH_UNVEILED: self._handle_path_unveiled_message,
+                ServerMessageType.DONE: self._handle_done_message,
+                ServerMessageType.TARGET: self._handle_target_message,
+            }.items()
+        }
+
+        if self.communication is None:
+            # First supply station.
+            # Communication initialization.
+            self.communication = Communication(self.client, self.logger)
+            self.communication.message_handlers = message_handlers
+            self.communication.send_message_type(ClientMessageType.READY)
+        else:
+            self.communication.message_handlers = message_handlers
+            # TODO: Publish path message.
+
+        # Start timeout.
+        self.reset_communication_timeout()
+
+    def reset_communication_timeout(self):
+        """Set a 3 second timeout signalling the communication end."""
+        self.timeout = monotonic_ns() + 3_000_000    # + 3 s
+
+    def wait_for_communication_timeout(self):
+        """Wait until `self.timeout` is reached and reset message handlers."""
+        while monotonic_ns() < self.timeout:
+            sleep(0.1)
+
+        # Stop handling messages.
+        self.communication.message_handlers = {}
+
+    def _handle_planet_message(self, planet_record: PlanetRecord):
+        # TODO: Set start coordinates and direction.
+        pass
+
+    def _handle_path_message(self, weighted_path_record: WeightedPathRecord):
+        pass
+
+    def _handle_path_select_message(self, direction_record: DirectionRecord):
+        pass
+
+    def _handle_path_unveiled_message(self, weighted_path_record: WeightedPathRecord):
+        pass
+
+    def _handle_target_message(self, target_record: TargetRecord):
+        pass
+
+    def _handle_done_message(self, message_record: MessageRecord):
+        pass

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Attention: Do not import the ev3dev.ev3 module in this file
+# ATTENTION: Do not import the ev3dev.ev3 module in this file.
 import ssl
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, asdict
@@ -11,12 +11,12 @@ from typing import Any, Final, Union
 from paho.mqtt.client import Client, MQTTMessage
 
 # Using Python 3.12 library version instead of Python 3.9 in order to
-# use `StrEnum`. Use the name `newenum` to avoid name clashes.
-from newenum import StrEnum, unique
+# use `StrEnum`. Use a subdirectory to avoid name clashes.
+from python312stdlib.enum import StrEnum, unique
 from planet import Direction
 
 
-# This type is not yet defined in  Python 3.9` types`.
+# `types.NoneType` is not included in Python 3.9.
 NoneType = type(None)
 
 # The MQTT quality of service used for all publishing/subscribing.
@@ -64,7 +64,7 @@ class PathStatus(StrEnum):
 
 # An inheritable `typing.NamedTuple` alternative.
 # NOTE: Cannot enable `slots` parameter as it prohibits multiple inheritance
-#       (or at least makes it less usable).
+#       (or at least makes it less usable); it also isn't included Python 3.9.
 FrozenDataClass = dataclass(frozen=True)
 
 
@@ -142,6 +142,8 @@ SERVER_MESSAGE_RECORD_TYPES = {
 # The payload record types corresponding to the message types received
 # sent by the client.
 CLIENT_MESSAGE_RECORD_TYPES = {
+    # Usage of `NoneType` is required as `isinstance` expects a type as
+    # argument.
     ClientMessageType.READY: NoneType,
     ClientMessageType.PATH: PathRecord,
     ClientMessageType.PATH_SELECT: StartRecord,
@@ -153,8 +155,15 @@ CLIENT_MESSAGE_RECORD_TYPES = {
 class Communication:
     """MQTT communication client for a planet discovery robot."""
 
+    __slots__ = (
+        "message_handlers",
+        "_client",
+        "_logger",
+        "_topic_planet",
+    )
+
     # DO NOT EDIT THE METHOD SIGNATURE
-    def __init__(self, mqtt_client: Client, logger: Logger):
+    def __init__(self, mqtt_client: Client, logger: Logger) -> None:
         """Initialize communication, connect to server, subscribe."""
         # DO NOT CHANGE THE SETUP HERE
         self._client = mqtt_client
@@ -168,7 +177,7 @@ class Communication:
         # The callback takes --- if the message type is recognized and in
         # `ServerMessageType` --- the corresponding record type, else it
         # should take whatever the server sends as payload in this message.
-        self.message_handlers: (Mapping[
+        self.message_handlers: Mapping[
             Union[ServerMessageType, str],
             Callable[
                 [
@@ -179,7 +188,7 @@ class Communication:
                 ],
                 Any,
             ],
-        ]) = {}
+        ] = {}
 
         self._client.enable_logger()    # DEBUG
 
@@ -192,7 +201,7 @@ class Communication:
         self._logger = logger
 
     # DO NOT EDIT THE METHOD SIGNATURE
-    def on_message(self, client: Client, data: Any, message: MQTTMessage):
+    def on_message(self, client: Client, data: Any, message: MQTTMessage) -> None:
         """Callback to handle if any message from the server arrived."""
         payload = loads(message.payload.decode("utf-8"))
         self._logger.debug(dumps(payload, indent=2))
@@ -236,7 +245,7 @@ class Communication:
             )(**payload["payload"])
         )
 
-    def _handle_planet_message(self, planet_record: PlanetRecord):
+    def _handle_planet_message(self, planet_record: PlanetRecord) -> None:
         # Ready message sent, now receiving planet name.
         # This is assumed to happen only once.
         self._topic_planet = TOPIC_PLANET_TEMPLATE.format(planet_record.planetName)
@@ -246,8 +255,8 @@ class Communication:
         self,
         message_type: ClientMessageType,
         # NOTE: Type union operator `|` not supported in Python 3.9.
-        record: Union[StartRecord, PathRecord, MessageRecord, NoneType] = None
-    ):
+        record: Union[StartRecord, PathRecord, MessageRecord, None] = None
+    ) -> None:
         """Send the given message `record` of `message_type` to the right topic.
 
         If `record` is not an instance of the record type mapped by
@@ -256,7 +265,7 @@ class Communication:
         """
         if not isinstance(record, CLIENT_MESSAGE_RECORD_TYPES[message_type]):
             self._logger.error(
-                f"Invalid {record = } for {message_type = } in"
+                f"Invalid `{record = }` for `{message_type = }` in"
                 f" `{self.__class__.__name__}.send_message_type`"
             )
             return
@@ -282,7 +291,7 @@ class Communication:
     #
     # In order to keep the logging working you must provide a topic
     # string and an already encoded JSON-Object as message.
-    def send_message(self, topic: str, message: Any):
+    def send_message(self, topic: str, message: Any) -> None:
         """Sends given message to specified channel."""
         self._logger.debug("Publishing to: " + topic)
         self._logger.debug(dumps(message, indent=2))
@@ -293,7 +302,12 @@ class Communication:
     #
     # This helper method encapsulated the original `on_message`` method
     # and handles exceptions thrown by threads spawned by `paho-mqtt``.
-    def safe_on_message_handler(self, client: Client, data: Any, message: MQTTMessage):
+    def safe_on_message_handler(
+        self,
+        client: Client,
+        data: Any,
+        message: MQTTMessage
+    ) -> None:
         """Handle exceptions thrown by the paho library."""
         try:
             self.on_message(client, data, message)

@@ -5,13 +5,11 @@ import os
 import signal
 import uuid
 
-import ev3dev.ev3 as ev3
 import paho.mqtt.client as mqtt
 
-from communication import Communication, GROUP_ID
-from odometry import Odometry
-from planet import Direction, Planet
-import robot as rob
+from communication import GROUP_ID
+from robot import Robot, ColourCalibration
+
 
 client = None  # DO NOT EDIT
 
@@ -49,10 +47,11 @@ def run():
     logger = logging.getLogger("RoboLab")
 
     # ==================================================================
+
     # create robot instance
-    robot = rob.Robot()
+    robot = Robot()
     # set start state in rob instance to color calibration state, which needs to be an instance of Robo
-    robot.set_start_state(rob.ColourCalibration(robot))
+    robot.set_start_state(ColourCalibration(robot))
     # start by running runAll from robo class
     robot.runAll()
 
