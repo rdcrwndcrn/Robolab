@@ -186,6 +186,8 @@ class Planet:
                 # `target` not yet reachable, continue exploring normally.
                 shortest_path = self._shortest_path(start)
 
+            print(f"in next_direction({start = }, {target = }): {shortest_path = }")
+
             # Recheck in case `shortest_path` got updated.
             if shortest_path is None:
                 # No direction found, exploration completed.

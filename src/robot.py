@@ -71,8 +71,6 @@ class Robot:
         # for rounding
         self.current_node_colour = ''
         self.last_node_colour = ''
-        # for calculating the entry global compass direction
-        self.start_compass = 0
         # if path is blocked odo does not need to calc anything
         self.path_blocked = False
         # The coordinates and direction of last node; first set after receiving
@@ -221,7 +219,7 @@ class Follower(State):
     def run(self):
         # line following loop
         self.robot.path_blocked = False
-        input("to start Follower press enter")
+        # input("to start Follower press enter")
         self.robot.motor_prep()
         try:
             while True:
@@ -284,11 +282,14 @@ class Follower(State):
                 k_i = self.robot.k_i
                 ki = self.robot.ki  # TODO change back
                 t_p = self.robot.t_p
+
+                '''
                 self.robot.k_p = float(input(f'{k_p=} Enter new k_p value ') or "5") * 10 ** -1
                 self.robot.i_length = float(input(f'{interval=} Enter new interval length ').strip() or "60")
                 self.robot.k_i = float(input(f'{k_i=} Enter new k_i value ') or "1") * 10 ** 0
                 self.robot.ki = float(input(f'{ki=} Enter new ki value ') or "12")
                 self.robot.t_p = float(input(f'{t_p=} Enter new t_p value ') or "220")
+                '''
 
                 self.turn(3)
                 # save colour for odo
@@ -312,12 +313,13 @@ class Follower(State):
                 k_i = self.robot.k_i
                 ki = self.robot.ki
                 t_p = self.robot.t_p
+                '''
                 self.robot.k_p = float(input(f'{k_p=} Enter new k_p value ') or "5") * 10 ** -1
                 self.robot.i_length = float(input(f'{interval=} Enter new interval length ').strip() or "60")
                 self.robot.k_i = float(input(f'{k_i=} Enter new k_i value ') or "1") * 10 ** 0
                 self.robot.ki = float(input(f'{ki=} Enter new ki value ') or "12")
                 self.robot.t_p = float(input(f'{t_p=} Enter new t_p value ') or "220")
-
+                '''
                 self.turn(2)
                 # save colour for odo
                 print('found blue node')
@@ -494,7 +496,7 @@ class Node(State):
     def odometry(self):
         x = 0
         y = 0
-        global_direction_change = 0
+        global_direction_change = self.robot.start_record.startDirection
         # just for debugging
         angles = []
         for i, (left, right) in enumerate(self.robot.odo_motor_positions[1:]):
@@ -537,6 +539,7 @@ class Node(State):
             x = round(-x / 50) + self.robot.start_record.startX
             y = round(y / 50) + self.robot.start_record.startY
             alpha = round(-alpha / 90) * 90
+            '''
             if self.robot.start_compass == 90:
                 # east
                 y, x = -x, y
@@ -545,11 +548,12 @@ class Node(State):
                 y, x = -y, -x
             elif self.robot.start_compass == 270:
                 # west
-                y, x = x, -y
+                y, x = x, y
+            '''
         # 0 for north, 90 for east, 180 for south 270 for west
         # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
         # after he found the next node, but we need the incoming direction global compass thingy angle
-        self.compass = (self.robot.start_compass + alpha + 180) % 360  # cyclic group
+        self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
         print(f'{x=} {y=} {self.compass=} {self.alpha=}')
 
         return x, y, self.compass
@@ -653,16 +657,12 @@ class Node(State):
         if line == 0:
             print('you chose north')
             # for Odometry so we can calculate the end cardinal direction
-            self.robot.start_compass = 0
             position = self.north[0]
         elif line == 90:
-            self.robot.start_compass = 90
             position = self.east[0]
         elif line == 180:
-            self.robot.start_compass = 180
             position = self.south[0]
         else:
-            self.robot.start_compass = 270
             position = self.west[0]
         # turn to the path
         self.mp_turn(position)
@@ -823,7 +823,7 @@ class Node(State):
         exit()
 
     def select_path(self) -> None:
-        """Use `planet` to calculate best new path."""
+        """Use `planet` to calculate the best new path."""
         # Add the available directions of current node.
         self.robot.planet.set_available_node_directions(
             (self.corrected_record.endX, self.corrected_record.endY),
