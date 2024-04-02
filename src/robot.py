@@ -1,238 +1,552 @@
-import ev3dev.ev3 as ev3
-import sys
-import select
+from ev3dev import ev3
+import math
 import time
 
 
-# state where I save all the data, maybe there's a better way to do this
+# class to switch between States
 class Robot:
-    # sensors and motors
-    cs = ev3.ColorSensor()
-    # using rgb-mode
-    cs.mode = 'RGB-RAW'
-    # assigning ultrasonic sensor to us
-    us = ev3.UltrasonicSensor()
-    # continuous measurement in centimeters
-    us.mode = 'US-DIST-CM'
-    # assigning motors
-    # right motor is on output C
-    m_right = ev3.LargeMotor("outD")
-    # left motor is on output A
-    m_left = ev3.LargeMotor("outA")
-    # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-    t_p = 300
-
-    # dict for colours and rgb values
-    colors = {}
-    calibrated_colors = ['black', 'white', 'blue', 'red']
-    white_grey = 0
-    black_grey = 0
-    offset = 0
-
-    # declaring proportional gain
-    k_p = 0.9
-    # integral gain
-    k_i = 0 * 10 ** - 5
-    # derivative gain
-    k_d = 5 * 10 ** -1
-    # for summing up the error, hence integral
-    all_err = []
-    # for calc the derivative
-    last_err = 0
-
-    # gets executed when the class is called and initializes an object
     def __init__(self):
-        # so the first state is calibrate
-        self.currentState = CalibrateColours()
+        # for switching states
+        # attribute where current states gets saved
+        self.state = None
 
-    # this loop, it runs the state machine
-    def run_all(self):
-        # while the current state is a state, run the state
-        while isinstance(self.currentState, State):
-            # to execute run in the state
-            self.currentState = self.currentState.run(self)
+        # normal attributes
+        # for saving colours
+        self.colors = {}
+        self.calibrated_colors = ['black', 'white']
+        self.offset = 0
+        # initialising colour sensor
+        self.cs = ev3.ColorSensor()
+        # using rgb-mode
+        self.cs.mode = 'RGB-RAW'
+        # assigning ultrasonic sensor to us
+        self.us = ev3.UltrasonicSensor()
+        # continuous measurement in centimeters
+        self.us.mode = 'US-DIST-CM'
+        # assigning motors
+        # right motor is on output D
+        self.m_right = ev3.LargeMotor("outD")
+        # left motor is on output A
+        self.m_left = ev3.LargeMotor("outA")
+
+        # Odometrie
+        # list for motor positions
+        self.odo_motor_positions = []
+        # wheels distance 7,6 cm in ticks
+        self.a = (7.6 * 360) / (3.2 * math.pi)
+        # for rounding
+        self.current_node_colour = ''
+        self.last_node_colour = ''
+        # for calculating the entry global compass direction
+        self.start_compass = 0
+
+    def set_start_state(self, state):
+        # for switching to start state
+        self.switch_state(state)
+
+    # run all , because after that the states changes themselves back and forth
+    def runAll(self):
+        # run the state object which lies in the state attribute
+        self.state.run()
+
+    # calling function to change attribute and giving the robot instance (self) to the new state
+    def switch_state(self, new_state):
+        self.state = new_state
+        self.state.robot = self
+        self.state.run()
 
     def motor_prep(self):
-        # from doc, so must be important
         self.m_left.reset()
         self.m_right.reset()
         self.m_left.stop_action = "brake"
         self.m_right.stop_action = "brake"
+        time.sleep(0.1)
 
-    def speed(self, v_l, v_r):
-        # testing speed boundary's and adjusting speed if necessary
-        v_l = max(min(v_l, 1000), -1000)
-        v_r = max(min(v_r, 1000), -1000)
-        # assigning speed
-        self.m_left.speed_sp = v_l
-        self.m_right.speed_sp = v_r
-        # executing commands
-        self.m_left.command = "run-forever"
-        self.m_right.command = "run-forever"
-
-
-# for state machine
-class State:
-    # abstract class, so this method has to be implemented by subclasses, these are the really states for Robo
-    def run(self, robot):
-        raise NotImplementedError("Subclasses must implement this method.")
-
-
-class CalibrateColours(State):
-    # this is the first state, so we can calibrate the colours, everything in run gets executed if we are in this state
-    def run(self, robot):
-        # all calibration is in the function, the others get executed there as well
-        CalibrateColours.activ_colour_calibration(robot)
-
+    # is not static
     @staticmethod
-    def colour_calibration(robot):
+    def convert_to_grey(r, g, b):
+        return 0.3 * r + 0.59 * g + 0.11 * b
+
+
+# inheritance class state for saving the robot instance
+class State:
+    def __init__(self):
+        self.robot = None
+
+
+# starting state, calibrates colours
+class ColourCalibration(State):
+    def __init__(self, robot):
+        State.__init__(self)
+        self.robot = robot
+        self.btn = ev3.Button()
+        self.screen = ev3.Screen()
+
+    def run(self):
+        # running Colour calibration methods
+        print("starting ColourCalibration")
+        # hardcoded for faster testing, will be deleted for exam
+        self.robot.colors['black'] = [19.23, 22.58, 6.13]
+        self.robot.colors['white'] = [240.02, 258.32, 82.18]
+        # measuring colour and saving them in dict
+        self.measure_colours()
+        # calc offset for PID
+        self.calc_off()
+        # for Odo
+        self.robot.motor_prep()
+
+        # switch to the follower state by creating follower instance
+        # uses robot instance which lies in the robot attribute in Metaclass
+        # TODO - Why save the same robot instance again?
+        next_state = Follower(self.robot)
+        # calling the switch method of robot class which needs new state as an instance
+        self.robot.switch_state(next_state)
+
+    # colour calibration with robo buttons and display, for calc offset - TODO not really working, values inputs there, but display does not show anything
+    def measure_colours(self):
+        for x in self.robot.calibrated_colors:
+            # so we cant forget which colour we start with
+            self.screen.draw.text((0, 0), f'Press any button to read {x}')
+            self.screen.update()
+            # to wait for a button input
+            while True:
+                if self.btn.any():
+                    # so it won't detect one input as two and measure black and white at the same spot
+                    time.sleep(1)
+                    break
+                time.sleep(0.1)
+            # getting and saving rgb-values
+            self.robot.colors[x] = self.calibration()
+            print(self.robot.colors[x])
+        # telling us that everything worked
+        self.screen.draw.text((0, 0), f'Im ready. Put me on!')
+        self.screen.update()
+
+    # eliminate short period deviation in colour sensor
+    # to help with measuring the colors in the colors dict
+    def calibration(self):
         # average rgb
         avg_r = 0
         avg_g = 0
         avg_b = 0
-
         # measuring 100 times
         for i in range(100):
-            red, green, blue = robot.cs.raw
+            red, green, blue, _ = self.robot.cs.bin_data("hhhh")
             avg_r += red
             avg_g += green
             avg_b += blue
-
         avg_r /= 100
         avg_g /= 100
         avg_b /= 100
         return [avg_r, avg_g, avg_b]
 
-    @staticmethod
-    def calc_greyscale(r, g, b):
-        # colour calc to calc the error and use that for PID calc
+    # for calculating the offset
+    def calc_off(self):
+        # colour calc to calc the error and use that for PID
         # converting white and black to greyscale / 2.55 to norm it from 0 to 100
-        grey = 0.3 * r + 0.59 * g + 0.11 * b
-        return grey
+        white_grey = self.robot.convert_to_grey(self.robot.colors['white'][0], self.robot.colors['white'][1],
+                                                self.robot.colors['white'][2])
+        black_grey = self.robot.convert_to_grey(self.robot.colors['black'][0], self.robot.colors['black'][1],
+                                                self.robot.colors['black'][2])
+        # calculating offset
+        self.robot.offset = (white_grey + black_grey) / 2
 
-    @staticmethod
-    def activ_colour_calibration(robot):
-        for x in robot.calibrated_colors:
-            # wait, so we can move Robo and know which colour is next
-            input(f"Press enter to read {x}.")
-            # getting and saving rgb-values
-            robot.colors[x] = CalibrateColours.colour_calibration(robot)
-            print(robot.colors[x])
-            # calcu greyscale values for black and white for offset
-            grey = CalibrateColours.calc_greyscale(robot.colors[x][0], robot.colors[x][1], robot.colors[x][2])
-            print(f'{x} grey: {grey}')
-            # saving it
-            robot.offset = CalibrateColours.calc_offset(robot)
-            # calling all methods in this method is not relly elegant, but it works for now
-            return Follower()
-
-    @staticmethod
-    def calc_offset(robot):
-        # + 40 so the robot does not drive over the black line
-        offset = ((robot.white_grey + robot.black_grey) / 2) + 40
-        print(f'offset_grey: {offset}')
-        return offset
+    # rgb to grey
+    # after greyscale model optimised for human eyes
 
 
+# follows line, PID and I, accumulates data for Odometry, turn before collision with bottles, detects nodes
 class Follower(State):
+    def __init__(self, robot):
+        State.__init__(self)
+        self.robot = robot
+        # for PID
+        # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
+        self.t_p = 400
+        # declaring proportional gain
+        self.k_p = 6 * 10 ** -1
+        # integral gain
+        self.k_i = 6 * 10 ** -1
+        # second I controller for going slower in slopes
+        self.ki = 30
+        # derivative gain
+        self.k_d = 2 * 10 ** -1
+        # 40,92 ms per loop -> 1s has ~24,5 iterations
+        # 60 iterations ~ 2,5 s
+        self.i_length = 60
+        # for summing up the error, hence integral
+        self.all_err = []
+        # constant to shrink error in interval
+        self.k_err = 0.004
+        # for calc the derivative
+        self.last_err = 0
+        # counter for iterations in while
+        self.i = 0
+        # counter for getting node colours
+        self.c = 0
 
-    def run(self, robot):
-        self.follow_line(robot)
-
-    @staticmethod
-    def follow_line(robot):
-        while True:
-            # this stops the loop if I press enter
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                line = input()
-                if line == '':
-                    break
-            else:
-                # turn if bottle is less than 150 mm before Robo,
-                # so we don't always measure, it may be more energy efficient??
-                if robot.us.value() < 150:
-                    return Turn()
-                # detects if the cs sees red
-                r, g, b = robot.cs.raw
-                # does not work that well, should be calibrated
-                if r > g * 1.5 and r > b * 1.5:
-                    # break loop to stop if it does
-                    return Node()
-                # same for blue
-                if b > r * 1.5 and b > g * 1.5:
-                    return Node()
-                # calculating turn_speed and if turning is necessary
+    def run(self):
+        # line following loop
+        input("to start Follower press enter")
+        self.robot.motor_prep()
+        try:
+            while True:
+                # get rgb values for the iteration we are in
+                r, g, b, _ = self.robot.cs.bin_data("hhhh")
+                # check if Rob over red or blue
+                self.check_for_node(r, g, b)
+                # turn if bottle is less than 150 mm before Rob
+                if self.robot.us.value() < 150:
+                    self.turn(175)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
-                light_grey = 0.3 * r + 0.59 * g + 0.11 * b
-                # print(f'actual reading: r={r}, b={b}, g={g}, light_grey={light_grey}')
+                grey = self.robot.convert_to_grey(r, g, b)
                 # calculating error
-                err = light_grey - robot.offset
-                # add err to integral array
-                robot.all_err.append(err)
-                # check if integral has to many values
-                if len(robot.all_err) > 5 * 10 ** 2:
-                    # remove the first(first in first out)
-                    robot.all_err.pop(0)
+                err = grey - self.robot.offset
                 # calc integral
-                integral = sum(robot.all_err)
-                # integral * k_i should not be bigger than +-30, that means an additional difference of 60 ticks
-                integral_adjusted = min(max(integral, -3000000), 3000000)
+                integral = self.calc_int(err)
                 # calc derivative
-                derivative = err - robot.last_err
-                # calc turn = k_p * err + k_i * integral + k_d * derivative
-                turns = robot.k_p * err + robot.k_d * derivative
-                if turns > 150:
-                    turns += robot.k_i * integral_adjusted
-                # print(f'P: {k_p*err} and D:{k_i*integral}')
-                # driving with adjusted speed
-                # a white line
-                new_speed_left = robot.t_p + turns
-                new_speed_right = robot.t_p - turns
-                robot.speed(new_speed_left, new_speed_right)
-                # print(f'new speed left: {new_speed_left}, new speed right: {new_speed_right}')
+                derivative = err - self.last_err
+                # calc adjustments for little correction turns of wheels
+                turns = self.k_p * err + self.k_i * integral + self.k_d * derivative
+                # continuing with adjusted speed
+                new_speed_left = self.t_p + turns - abs(integral) * self.ki
+                new_speed_right = self.t_p - turns - abs(integral) * self.ki
+                self.speed(new_speed_left, new_speed_right)
+                # for derivative in next interation
+                # just for testing
+                # if self.i % 17 == 0:
+                #    print(f' {new_speed_right=} {new_speed_left=}')
+                #    print(f'{turns=} {self.k_p*err=} {self.k_i*integral=} {integral=} {self.ki*integral=}')
+                self.last_err = err
+                # print(f'actual value: {grey}')
+                # print(f'right {new_speed_right} left {new_speed_left}')
                 # print()
-                robot.last_err = err
-                time.sleep(0.01)
+                # reset counters every 17 iteration, to differentiate blue nodes and "blueish" points on paths
+                if self.i % 17 == 0:
+                    self.i = 0
+                    self.c = 0
+                    # logging motor position for odo
+                    print('log motor position')
+                    self.robot.odo_motor_positions.append((self.robot.m_left.position, self.robot.m_right.position))
+                self.i += 1
 
+        finally:
+            self.robot.motor_prep()
+            print('aborting ...')
 
-class Turn(State):
-    # I hope for every bottle the degree approach works
-    degree = 175
+    # check if colour sensor is over red or blue
+    def check_for_node(self, r, g, b):
+        next_state = Node(self.robot)
+        if r > 5 * b and r > 3 * g:
+            # print(f'found red node: {r, g, b}, c = {self.c}')
+            self.c += 1
+            if self.c > 2:
+                # reset motor position of each motor for odo and to stop
+                self.robot.motor_prep()
+                # self.turn(7)
+                # save colour for odo
+                self.robot.current_node_colour = 'red'
+                # calling the switch method of robot class which needs new state as an instance
+                self.robot.switch_state(next_state)
+        elif 1.9 * b - 0.9 * r > 40:
+            self.c += 1
+            # print(f'found blue node: {r, g, b}, c = {self.c}')
+            if self.c > 2:
+                # reset motor position of each motor for odo and to stop
+                self.robot.motor_prep()
+                # self.turn(4)
+                # save colour for odo
+                self.robot.current_node_colour = 'blue'
+                # calling the switch method of robot class which needs new state as an instance
+                self.robot.switch_state(next_state)
 
-    def run(self, robot):
-        self.turn(Turn.degree, robot)
-
-    @staticmethod
-    def turn(degree, robot):
-        # 2280 ticks ~ 360 degree
+    # basic turn function with degrees  TODO add functionality so Odo does not need to get calculated
+    def turn(self, degree):
+        self.robot.motor_prep()
         # opposite wheel directions are twice as fast
+        # 1860 * 2 ticks ~ 360 degree
         # ticks the wheels should to do
-        robot.m_left.position_sp = (1 / 2 * degree * 1155) / 360
-        robot.m_right.position_sp = -(1 / 2 * degree * 1155) / 360
+        ticks = 1860
+        self.robot.m_left.position_sp = (1 / 2 * degree * ticks) / 360
+        self.robot.m_right.position_sp = -(1 / 2 * degree * ticks) / 360
         # ticks per second, up to 1050
-        robot.m_left.speed_sp = 100
-        robot.m_right.speed_sp = 100
+        self.robot.m_left.speed_sp = 300
+        self.robot.m_right.speed_sp = 300
         # executing commands
-        robot.m_left.command = "run-to-rel-pos"
-        robot.m_right.command = "run-to-rel-pos"
+        self.robot.m_left.command = "run-to-rel-pos"
+        self.robot.m_right.command = "run-to-rel-pos"
         # print(m_left.state.__repr__())
         # giving them time to execute
-        while 'running' in robot.m_left.state or 'running' in robot.m_right.state:
+        while self.robot.m_right.is_running and self.robot.m_left.is_running:
             time.sleep(0.1)
-            # should continue if he found the line again
-            # found_line = 0.3 * self.cs.raw[0] + 0.59 * self.cs.raw[1] + 0.11 * self.cs.raw[2]
-            # if found_line > offset_grey:
-            #    break
-        # tried error minimization with gyro, but too imprecise
-        return Follower()
+
+    # function for calculating the integral
+    def calc_int(self, error):
+        # add err to integral array
+        self.all_err.append(self.k_err * error)
+        # check if integral has to many values - sliding window
+        if len(self.all_err) > self.i_length:
+            # remove the first (first in first out)
+            self.all_err.pop(0)
+        # calc integral
+        integral = sum(self.all_err)
+        product = self.k_i * integral
+        # just for testing
+        # if self.i % 17 == 0:
+        #    print(f'{self.i}th {integral=}')
+        # that means an additional difference of 20 ticks, before k_i
+        integral_adjusted = min(max(product, -10), +10)
+        return integral_adjusted
+
+    # to change the speed on both wheels
+    def speed(self, v_l, v_r):
+        # testing speed boundary's and adjusting speed if necessary
+        v_l = max(min(v_l, 1000), -1000)
+        v_r = max(min(v_r, 1000), -1000)
+        # assigning speed
+        self.robot.m_left.speed_sp = v_l
+        self.robot.m_right.speed_sp = v_r
+        # executing commands
+        self.robot.m_left.command = "run-forever"
+        self.robot.m_right.command = "run-forever"
 
 
-# explores possible routes from node, calls communication, maybe Dijkstra
+# just for testing
+def histogram(values, count_bin=10):
+    min_value = min(values)
+    max_value = max(values)
+    bin_width = (max_value - min_value) / count_bin
+    bin_width = [min_value + i * bin_width for i in range(count_bin + 1)]
+    bins = [0] * count_bin
+    for value in values:
+        bin_index = int((value - min_value) / bin_width)
+        if bin_index == count_bin:
+            bin_index -= 1
+        bins[bin_index] += 1
+    for b, count in zip(bin_width, bins):
+        print(b, count)
+
+
+# calculates Odometry, communicates with mothership, scans Node, calls dijkstra, resets many variables
 class Node(State):
+    def __init__(self, robot):
+        State.__init__(self)
+        self.robot = robot
+        # for node scanning
+        self.lines = []
+        # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
+        # north is where Rob is looking before and after the scan
+        self.nodes = [False, False, False, False]
+        # for turning at the node
+        self.north = []
+        self.east = []
+        self.south = []
+        self.west = []
+        # true incoming direction
+        self.compass = 0
+        # needed for saving scanned lines after node scan in global directions
+        self.alpha = 0
+        # just for testing
+        self.angles = []
 
-    def run(self, robot):
-        self.node(robot)
+    def run(self):
+        print("starting node state")
+        # node methods:
+        # odometry
 
-    @staticmethod
-    def node(robot):
-        pass
+        # move Robo to node mid
+        self.move_to_position(350, 350, 240, 240)
+        # just for testing
+        # interval = self.i_length
+        # k_i = self.k_i
+        # ki = self.ki
+        # t_p = self.t_p
+        # self.i_length = float(input(f'{interval=} Enter new interval length '))
+        # self.k_i = float(input(f'{k_i=} Enter new k_i value ')) * 10 ** -1
+        # self.ki = float(input(f'{ki=} Enter new ki value ')) * 10 ** 0
+        # self.t_p = float(input(f'{t_p=} Enter new t_p value '))
+        # scan for lines
+        self.node_scan()
+        # calculating where the lines are
+        # array: Nord, East, South, West, from the positioning of the robot, not the card yet
+        self.degree_to_celestial_direction()
+        # turn to the chosen line to continue
+        self.choose_line()
+        print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
+        print(f'{len(self.robot.odo_motor_positions)=}')
+        # clear motor position array for odo
+        self.robot.odo_motor_positions.clear()
+        print(f'{len(self.robot.odo_motor_positions)=}')
+
+        # back to line following
+        next_state = Follower(self.robot)
+        # calling the switch method of robot class which needs new state as an instance
+        self.robot.switch_state(next_state)
+
+    def odometry(self):
+        x = 0
+        y = 0
+        global_direction_change = 0
+        # just for debugging
+        angles = []
+        print(self.robot.odo_motor_positions)
+        for i, (left, right) in enumerate(self.robot.odo_motor_positions[1:]):
+            d_l = left - self.robot.odo_motor_positions[i - 1][0]
+            d_r = right - self.robot.odo_motor_positions[i - 1][1]
+            if d_r == d_l:
+                alpha = 0
+                s = d_r
+            else:
+                alpha = (d_r - d_l) / self.robot.a
+                s = (d_r + d_l) / alpha * math.sin(alpha / 2)
+            angles.append(alpha)
+            x += s * math.sin(global_direction_change + alpha / 2)
+            y += s * math.cos(global_direction_change + alpha / 2)
+            global_direction_change += alpha
+        # just for debugging
+        histogram(angles)
+        return x, y, global_direction_change
+
+    # to round x and y from odometry and using red blue node rule for higher accuracy
+    def round_odo(self):
+        # calc and get odo values
+        x, y, alpha = self.odometry()
+        # converting scale to cm
+        alpha = alpha * 180 / math.pi
+        x = x / 360 * 3.2 * math.pi
+        y = y / 360 * 3.2 * math.pi
+        # drove orthogonal that means one coordinate is zero, probably the smaller one
+        if self.robot.last_node_colour != self.robot.current_node_colour:
+            if x > y:
+                y = 0
+            else:
+                x = 0
+        x = round(x / 50) * 50
+        y = round(y / 50) * 50
+        alpha = round(alpha / 90) * 90
+        # saving it for correcting line scan to global coordinates
+        self.alpha = alpha
+        # 0 for north, 90 for east, 180 for south 270 for west TODO add connection to communication
+        # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
+        # after he found the next node, but we need the incoming direction global compass thingy angle
+        self.compass = (self.robot.start_compass + alpha + 180) % 360  # cyclic group
+        return x, y, self.compass
+
+    # move to position
+    def move_to_position(self, v_l, v_r, s_l, s_r):
+        self.robot.motor_prep()
+        # try to get into the mit of the node
+        # to align the colour sensor
+        self.robot.m_left.position_sp = s_l
+        self.robot.m_right.position_sp = s_r
+        # ticks per second, up to 1050
+        self.robot.m_left.speed_sp = v_l
+        self.robot.m_right.speed_sp = v_r
+        # executing commands
+        self.robot.m_left.command = "run-to-rel-pos"
+        self.robot.m_right.command = "run-to-rel-pos"
+        while self.robot.m_right.is_running and self.robot.m_left.is_running:
+            time.sleep(0.01)
+
+    # function for scanning the node and noting motor position if black is found
+    def node_scan(self):
+        # print("Scanning for lines")
+        # motor prep so the position attribute from the motors is exact
+        self.robot.motor_prep()
+        # 1860 * 2 ticks ~ 360 degree
+        # opposite wheel directions are twice as fast
+        ticks = 1840
+        # ticks the wheels should to do
+        self.robot.m_left.position_sp = 1 / 2 * ticks
+        self.robot.m_right.position_sp = -1 / 2 * ticks
+        # ticks per second, up to 1050
+        self.robot.m_left.speed_sp = 250
+        self.robot.m_right.speed_sp = 250
+        # executing commands
+        self.robot.m_left.command = "run-to-rel-pos"
+        self.robot.m_right.command = "run-to-rel-pos"
+        # giving them time to execute
+        while self.robot.m_right.is_running and self.robot.m_left.is_running:
+            r, g, b, _ = self.robot.cs.bin_data("hhhh")
+            # should continue if he found the line again
+            found_line = self.robot.convert_to_grey(r, g, b)
+            if found_line > self.robot.offset:  # TODO change > to < if line black
+                # print(f'{found_line=}')
+                self.lines.append(self.robot.m_left.position)
+
+    # function to turn the motor.position into a compass
+    def degree_to_celestial_direction(self):
+        # the motor position starts at 0 and after the scan it has 1000
+        # if line found, then position gets noted in lines
+        # idea: make 4 intervals and if at least one value is in it, there is a line
+        # set all from previous node to false
+        # whole thing needs to rotate for self.alpha + 180
+        for x in self.lines:
+            if x < 150:
+                # north
+                self.north.append(x)
+                self.nodes[0] = True
+            elif x < 380:
+                # east
+                self.east.append(x)
+                self.nodes[1] = True
+            elif x < 610:
+                # south
+                self.south.append(x)
+                self.nodes[2] = True
+            elif x < 840:
+                # west
+                self.west.append(x)
+                self.nodes[3] = True
+            elif x < 950:
+                # north
+                self.north.append(x)
+                self.nodes[0] = True
+        # says how many intervals we need to rotate, for example if incoming at west 270 its looking to the east before
+        # and after scanning that's 90, and it needs to rotate 1 interval, that is from east to north
+        swap = int(((self.alpha + 180) % 360) / 90)
+        # swap all values 1 interval in contrary to clock direction every iteration
+        for i in range(swap):
+            self.north, self.east, self.south, self.west = self.east, self.south, self.west, self.north
+            # same for where the lines are
+            self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3] = (self.nodes[1], self.nodes[2], self.nodes[3],
+                                                                          self.nodes[0])
+        print(f'{self.nodes=}')  # TODO add connection to planet
+
+    # so Rob can choose a line to continue from Node and move in position there
+    def choose_line(self):
+        # for knowing which one to continue on - 0 for north, 1 for east, 2 for south, 3 for west
+        line = int(input('Choose the path: 0 for north, 90 for east, 180 for south, 270 for west'))
+        # TODO - add connection to Planet
+        # getting the first motor position of the lane - that's the one on the left side
+        if line == 0:
+            # for Odometry so we can calculate the end cardinal direction
+            self.robot.start_compass = 0
+            position = self.north[0]
+        elif line == 90:
+            self.robot.start_compass = 90
+            position = self.east[0]
+        elif line == 180:
+            self.robot.start_compass = 180
+            position = self.south[0]
+        else:
+            self.robot.start_compass = 270
+            position = self.west[0]
+        # turn to the path
+        self.mp_turn(position)
+
+    # basic turn function with degrees
+    def mp_turn(self, motor_position):
+        # for good measures
+        self.robot.motor_prep()
+        self.robot.m_left.position_sp = motor_position
+        self.robot.m_right.position_sp = - motor_position
+        # ticks per second, up to 1050
+        self.robot.m_left.speed_sp = 300
+        self.robot.m_right.speed_sp = 300
+        # executing commands
+        self.robot.m_left.command = "run-to-rel-pos"
+        self.robot.m_right.command = "run-to-rel-pos"
+        # giving them time to execute
+        while self.robot.m_right.is_running and self.robot.m_left.is_running:
+            time.sleep(0.1)

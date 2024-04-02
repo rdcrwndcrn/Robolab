@@ -8,7 +8,7 @@ import uuid
 import paho.mqtt.client as mqtt
 
 from communication import GROUP_ID
-from movement import Robot
+from robot import Robot, ColourCalibration
 
 
 client = None  # DO NOT EDIT
@@ -47,8 +47,13 @@ def run():
     logger = logging.getLogger("RoboLab")
 
     # ==================================================================
-    robot = Robot(client, logger)
-    robot.start_state()
+
+    # create robot instance
+    robot = Robot()
+    # set start state in rob instance to color calibration state, which needs to be an instance of Robo
+    robot.set_start_state(ColourCalibration(robot))
+    # start by running runAll from robo class
+    robot.runAll()
 
 
 # DO NOT EDIT
