@@ -540,18 +540,18 @@ class Node(State):
             x = round(-x / 50) + self.robot.start_record.startX
             y = round(y / 50) + self.robot.start_record.startY
             alpha = round(-alpha / 90) * 90
-            if self.robot.start_compass == 90:
+            if self.robot.start_record.startDirection == 90:
                 # east
                 y, x = -x, y
-            elif self.robot.start_compass == 180:
+            elif self.robot.start_record.startDirection == 180:
                 # south
                 y, x = -y, -x
-            elif self.robot.start_compass == 270:
+            elif self.robot.start_record.startDirection == 270:
                 # west
                 y, x = x, -y
             # 0 for north, 90 for east, 180 for south 270 for west
-            # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
-            # after he found the next node, but we need the incoming direction global compass thingy angle
+            # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is
+            # looking after he found the next node, but we need the incoming direction global compass thingy angle
             self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
             print(f'{x=} {y=} {self.compass=} {self.alpha=}')
         return x, y, self.compass
