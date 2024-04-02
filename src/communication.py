@@ -316,3 +316,33 @@ class Communication:
 
             traceback.print_exc()
             raise
+
+if __name__ == "__main__":
+    import logging
+    import os
+    import signal
+    import uuid
+
+    import paho.mqtt.client as mqtt
+
+    client_id = GROUP_ID + "-" + str(uuid.uuid4())
+    client = mqtt.Client(
+        # Unique Client-ID to recognize our program
+        client_id=client_id,
+        # We want a clean session after disconnect or abort/crash
+        clean_session=True,
+        # Define MQTT protocol version
+        protocol=mqtt.MQTTv311,
+    )
+
+    logging.basicConfig(
+        # Define default mode
+        level=logging.DEBUG,
+        # Define default logging format
+        format="%(asctime)s: %(message)s",
+    )
+    logger = logging.getLogger("RoboLab")
+
+    c = Communication(client, logger)
+    c.send_message(TOPIC_EXPLORER, {"from": "client", "type": "testPlanet", "payload": {"planetName": "Forever"}})
+    client.disconnect()

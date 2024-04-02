@@ -15,9 +15,10 @@ class Direction(IntEnum):
     SOUTH = 180
     WEST = 270
 
-    def opposite(self) -> "Direction":
-        """Return the opposite direction of current value."""
-        return (self.value + 180) % 360
+
+def opposite(direction: Direction) -> Direction:
+    """Return the opposite direction of `direction`."""
+    return (direction + 180) % 360
 
 
 Weight = int
@@ -165,7 +166,7 @@ class Planet:
         signalling the completion of exploration.
 
         Both `start` and `target` (if not `None`) are assumed to be
-        valid coordinates, else a `KeyError` will be raised. Also both
+        valid coordinates, else a `KeyError` will be raised. Also, both
         coordinates are assumed, if given, to be different, else an
         `IndexError` will be raised.
         """

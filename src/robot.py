@@ -14,7 +14,7 @@ from communication import (
     PathRecord, PathStatus, PlanetRecord, ServerMessageType, StartRecord,
     TargetRecord, WeightedPathRecord,
 )
-from planet import BLOCKED, Direction, Planet
+from planet import BLOCKED, Direction, Planet, opposite
 
 
 # class to switch between States
@@ -50,18 +50,18 @@ class Robot:
 
         # just for testing
         # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-        self.t_p = 300
+        self.t_p = 220
         # declaring proportional gain
         self.k_p = 6 * 10 ** -1
         # integral gain
         self.k_i = 1 * 10 ** 0
         # second I controller for going slower in slopes 30
-        self.ki = 7
+        self.ki = 12
         # derivative gain
-        self.k_d = 2 * 10 ** -1
+        self.k_d = 3 * 10 ** -1
         # 40,92 ms per loop -> 1s has ~24,5 iterations
         # 60 iterations ~ 2,5 s
-        self.i_length = 100
+        self.i_length = 60
 
         # Odometrie
         # list for motor positions
@@ -77,7 +77,7 @@ class Robot:
         self.path_blocked = False
         # The coordinates and direction of last node; first set after receiving
         # `planet` message.
-        self.start_record: Optional[StartRecord] = None
+        self.start_record: StartRecord = StartRecord(0, 0, 0)
         # The target to reach.
         self.target: Optional[tuple[int, int]] = None
 
@@ -273,7 +273,6 @@ class Follower(State):
     def check_for_node(self, r, g, b):
         next_state = Node(self.robot)
         if r > 5 * b and r > 3 * g:
-            # print(f'found red node: {r, g, b}, c = {self.c}')
             self.c += 1
             if self.c > 1:
                 # reset motor position of each motor for odo and to stop
@@ -321,7 +320,7 @@ class Follower(State):
 
                 self.turn(2)
                 # save colour for odo
-                print('found red node')
+                print('found blue node')
                 self.robot.current_node_colour = 'blue'
                 # calling the switch method of robot class which needs new state as an instance
                 self.robot.switch_state(next_state)
@@ -446,6 +445,7 @@ class Node(State):
         # move Robo to node mid
         self.move_to_position(300, 300, 130, 130)
         self.open_communication(x, y, direction)
+        self.alpha = self.corrected_record.endDirection
         # just for testing
         # interval = self.i_length
         # k_i = self.k_i
@@ -534,8 +534,8 @@ class Node(State):
                     y = 0
                 else:
                     x = 0
-            x = round(-x / 50) + self.robot.coordinates_last_node[0]
-            y = round(y / 50) + self.robot.coordinates_last_node[1]
+            x = round(-x / 50) + self.robot.start_record.startX
+            y = round(y / 50) + self.robot.start_record.startY
             alpha = round(-alpha / 90) * 90
             if self.robot.start_compass == 90:
                 # east
@@ -546,8 +546,6 @@ class Node(State):
             elif self.robot.start_compass == 270:
                 # west
                 y, x = x, -y
-        # saving it for correcting line scan to global coordinates
-        self.alpha = alpha
         # 0 for north, 90 for east, 180 for south 270 for west
         # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
         # after he found the next node, but we need the incoming direction global compass thingy angle
@@ -628,7 +626,7 @@ class Node(State):
                 self.nodes[0] = True
         # says how many intervals we need to rotate, for example if incoming at west 270 its looking to the east before
         # and after scanning that's 90, and it needs to rotate 1 interval, that is from east to north
-        swap = -int(((self.alpha + self.robot.start_compass) % 360) / 90)
+        swap = -int(((self.alpha - 180) % 360) / 90)
         # swap all values 1 interval in contrary to clock direction every iteration
         if swap > 0:
             for i in range(swap):
@@ -774,7 +772,7 @@ class Node(State):
             # `startOrientation` is the direction where the robot currently
             # is looking to, but `endDirection` is the direction the path
             # we came from goes to, so save the opposite direction.
-            endDirection=planet_record.startOrientation.opposite(),
+            endDirection=opposite(planet_record.startOrientation),
         )
         # The path we came from is most likely not to be used again in
         # the other direction, so mark it as blocked.
