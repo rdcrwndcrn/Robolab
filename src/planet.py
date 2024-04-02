@@ -203,11 +203,8 @@ class Planet:
         If the `target` or the next unexplored node is the same as
         `start`, returns `[]`, else if no path is found, returns `None`.
         """
-        # Precomputation to improve performance slightly.
-        target_is_none = target is None
-
         if (start not in self._paths
-                or not target_is_none and target not in self._paths):
+                or target is not None and target not in self._paths):
             # We cannot know a path as we don't even know the node.
             return None
 
@@ -253,8 +250,8 @@ class Planet:
 
             # If this node is our target or meets our requirements, we
             # have found a shortest path and are finished.
-            if (not target_is_none and min_node == target
-                    or target_is_none
+            if (target is not None and min_node == target
+                    or target is None
                     and not self.is_completely_explored(min_node)):
                 # Set target to current node in case we are searching
                 # for the next unexplored node.
