@@ -255,7 +255,7 @@ class Follower(State):
                 # print(f'right {new_speed_right} left {new_speed_left}')
                 # print()
                 # reset counters every 17 iteration, to differentiate blue nodes and "blueish" points on paths
-                if self.i % 17 == 0:
+                if self.i % 5 == 0:
                     self.i = 0
                     self.c = 0
                 self.i += 1
@@ -272,7 +272,7 @@ class Follower(State):
         if r > 5 * b and r > 3 * g:
             # print(f'found red node: {r, g, b}, c = {self.c}')
             self.c += 1
-            if self.c > 2:
+            if self.c > 1:
                 # reset motor position of each motor for odo and to stop
                 self.robot.motor_prep()
                 # self.turn(7)
@@ -287,7 +287,7 @@ class Follower(State):
         elif 1.9 * b - 0.9 * r > 40:
             self.c += 1
             # print(f'found blue node: {r, g, b}, c = {self.c}')
-            if self.c > 2:
+            if self.c > 1:
                 # reset motor position of each motor for odo and to stop
                 self.robot.motor_prep()
                 # self.turn(4)
@@ -488,30 +488,33 @@ class Node(State):
     # to round x and y from odometry and using red blue node rule for higher accuracy
     def round_odo(self) -> tuple[int, int, Direction]:
         # calc and get odo values
-        x, y, alpha = self.odometry()
-        # converting scale to cm and degree
-        alpha = alpha * 180 / math.pi
-        x = x / 360 * 3.2 * math.pi
-        y = y / 360 * 3.2 * math.pi
-        print(f'before correction {x=}, {y=}, alpha={alpha}')
-        # drove orthogonal that means one coordinate is zero, probably the smaller one
-        if (self.robot.last_node_colour == 'blue' and self.robot.current_node_colour == 'red' or
-                self.robot.last_node_colour == 'red' and self.robot.current_node_colour == 'blue'):
-            if x > y:
-                print(f'we drove orthogonal, rounding one value to zero...')
-                y = 0
-            else:
-                x = 0
-        x = round(x / 50) * 50
-        y = round(y / 50) * 50
-        alpha = round(alpha / 90) * 90
+        # if path blocked -> returned to starting position
+        if self.robot.path_blocked:
+            x, y, alpha = 0, 0, 180
+        else:
+            x, y, alpha = self.odometry()
+            # converting scale to cm and degree
+            alpha = alpha * 180 / math.pi
+            x = x / 360 * 3.2 * math.pi
+            y = y / 360 * 3.2 * math.pi
+            print(f'before correction {x=}, {y=}, alpha={alpha}')
+            # drove orthogonal that means one coordinate is zero, probably the smaller one
+            if (self.robot.last_node_colour == 'blue' and self.robot.current_node_colour == 'red' or
+                    self.robot.last_node_colour == 'red' and self.robot.current_node_colour == 'blue'):
+                if x > y:
+                    y = 0
+                else:
+                    x = 0
+            x = round(-x / 50) + self.robot.coordinates_last_node[0]
+            y = round(y / 50) + self.robot.coordinates_last_node[1]
+            alpha = round(-alpha / 90) * 90
         # saving it for correcting line scan to global coordinates
         self.alpha = alpha
         # 0 for north, 90 for east, 180 for south 270 for west
         # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
         # after he found the next node, but we need the incoming direction global compass thingy angle
         self.compass = (self.robot.start_compass + alpha + 180) % 360  # cyclic group
-        print(f'{x=} {y=} {self.compass=}')
+        print(f'{x=} {y=} {self.compass=} {self.alpha=}')
 
         return x, y, self.compass
 
@@ -587,23 +590,35 @@ class Node(State):
                 self.nodes[0] = True
         # says how many intervals we need to rotate, for example if incoming at west 270 its looking to the east before
         # and after scanning that's 90, and it needs to rotate 1 interval, that is from east to north
-        swap = int((self.alpha % 360) / 90)
+        print(f'{self.alpha=}')
+        swap = -int(((self.alpha + self.robot.start_compass) % 360) / 90)
         print(f'{swap=}')
         print(f'{self.nodes=}')
-        print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
         # swap all values 1 interval in contrary to clock direction every iteration
-        for i in range(swap):
-            self.north, self.east, self.south, self.west = self.east, self.south, self.west, self.north
-            # same for where the lines are
-            self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3] = (self.nodes[1], self.nodes[2], self.nodes[3],
-                                                                          self.nodes[0])
-        print(f'{self.nodes=}')
+        if swap > 0:
+            for i in range(swap):
+                self.north, self.east, self.south, self.west = self.east, self.south, self.west, self.north
+                # same for where the lines are
+                self.nodes[0], self.nodes[3], self.nodes[2], self.nodes[1] = (
+                    self.nodes[3], self.nodes[2], self.nodes[1],
+                    self.nodes[0])
+        elif swap < 0:
+            for i in range(0, swap, -1):
+                self.north, self.west, self.south, self.east = self.west, self.south, self.east, self.north
+                # same for where the lines are
+                self.nodes[0], self.nodes[3], self.nodes[2], self.nodes[1] = (
+                    self.nodes[3], self.nodes[2], self.nodes[1],
+                    self.nodes[0])
+
+        print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
+        print(f'{self.nodes=}')  # TODO add connection to planet
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
         line = self.selected_direction
         # getting the first motor position of the lane - that's the one on the left side
         if line == 0:
+            print('you chose north')
             # for Odometry so we can calculate the end cardinal direction
             self.robot.start_compass = 0
             position = self.north[0]
