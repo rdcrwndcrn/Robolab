@@ -3,6 +3,7 @@ import math
 from logging import Logger
 from queue import SimpleQueue, Empty
 import time
+from sys import exit
 from typing import Any, Callable, Optional, Union
 
 from ev3dev import ev3
@@ -62,6 +63,8 @@ class Robot:
         # The coordinates and direction of last node; first set after receiving
         # `planet` message.
         self.start_record: Optional[StartRecord] = None
+        # The target to reach.
+        self.target: Optional[tuple[int, int]] = None
 
     def set_start_state(self, state):
         # for switching to start state
@@ -225,6 +228,7 @@ class Follower(State):
                 self.check_for_node(r, g, b)
                 # turn if bottle is less than 150 mm before Rob
                 if self.robot.us.value() < 150:
+                    # TODO: Signal obstacle in some way.
                     self.robot.path_blocked = True
                     self.turn(175)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
@@ -374,7 +378,7 @@ class Node(State):
                         Union[
                             PlanetRecord, WeightedPathRecord, DirectionRecord,
                             TargetRecord, MessageRecord, Any,
-                        ]
+                        ],
                     ],
                     Any,
                 ],
@@ -386,6 +390,8 @@ class Node(State):
         ] = SimpleQueue()
         # The corrected information received from server.
         self.corrected_record: Optional[EndRecord] = None
+        # The direction to continue driving in.
+        self.selected_direction: Optional[Direction] = None
         # for node scanning
         self.lines = []
         # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
@@ -425,6 +431,24 @@ class Node(State):
         # calculating where the lines are
         # array: Nord, East, South, West, from the positioning of the robot, not the card yet
         self.degree_to_celestial_direction()
+        # Calculate the optimal new path based on current information.
+        self.select_path()
+        # Check if we are finished.
+        self.check_if_finished()
+        # Wait 3 seconds for new messages.
+        self.handle_messages(timeout=3)
+        # Stop reacting to any server message.
+        self.close_communication()
+        # If we have not received `done` message but still are finished, abort.
+        if self.selected_direction is None:
+            self.robot.logger.warning("Aborting without `done` message")
+            exit(1)
+
+        self.robot.start_record = StartRecord(
+            startX=self.corrected_record.endX,
+            startY=self.corrected_record.endY,
+            startDirection=self.selected_direction,
+        )
         # turn to the chosen line to continue
         self.choose_line()
         # print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
@@ -432,9 +456,6 @@ class Node(State):
         # clear motor position array for odo
         self.robot.odo_motor_positions.clear()
         # print(f'{len(self.robot.odo_motor_positions)=}')
-
-        # Stop reacting to any server message.
-        self.close_communication()
 
         # back to line following
         next_state = Follower(self.robot)
@@ -486,7 +507,7 @@ class Node(State):
         alpha = round(alpha / 90) * 90
         # saving it for correcting line scan to global coordinates
         self.alpha = alpha
-        # 0 for north, 90 for east, 180 for south 270 for west TODO add connection to communication
+        # 0 for north, 90 for east, 180 for south 270 for west
         # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is looking
         # after he found the next node, but we need the incoming direction global compass thingy angle
         self.compass = (self.robot.start_compass + alpha + 180) % 360  # cyclic group
@@ -576,13 +597,11 @@ class Node(State):
             # same for where the lines are
             self.nodes[0], self.nodes[1], self.nodes[2], self.nodes[3] = (self.nodes[1], self.nodes[2], self.nodes[3],
                                                                           self.nodes[0])
-        print(f'{self.nodes=}')  # TODO add connection to planet
+        print(f'{self.nodes=}')
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
-        # for knowing which one to continue on - 0 for north, 1 for east, 2 for south, 3 for west
-        line = int(input('Choose the path: 0 for north, 90 for east, 180 for south, 270 for west'))
-        # TODO - add connection to Planet
+        line = self.selected_direction
         # getting the first motor position of the lane - that's the one on the left side
         if line == 0:
             # for Odometry so we can calculate the end cardinal direction
@@ -678,7 +697,7 @@ class Node(State):
         # messages.
         self.corrected_record = None
         while self.corrected_record is None:
-            self.handle_messages(timeout=0.1)
+            self.handle_messages(timeout=0.5)
 
     def handle_messages(self, timeout: float = 0) -> None:
         """Wait at most `timeout` seconds for new messages and handle them."""
@@ -696,6 +715,7 @@ class Node(State):
     def close_communication(self) -> None:
         """Stop handling messages."""
         self.robot.communication.message_handlers = {}
+        # TODO: Signal end of communication in some way.
 
     def _handle_planet_message(self, planet_record: PlanetRecord) -> None:
         self.corrected_record = EndRecord(
@@ -729,7 +749,7 @@ class Node(State):
         self,
         direction_record: DirectionRecord,
     ) -> None:
-        pass
+        self.selected_direction = direction_record.startDirection
 
     def _handle_path_unveiled_message(
         self,
@@ -748,7 +768,49 @@ class Node(State):
         )
 
     def _handle_target_message(self, target_record: TargetRecord) -> None:
-        pass
+        self.robot.target = (target_record.targetX, target_record.targetY)
 
     def _handle_done_message(self, message_record: MessageRecord) -> None:
-        pass
+        self.close_communication()
+        exit()
+
+    def select_path(self) -> None:
+        """Use `planet` to calculate best new path."""
+        # Add the available directions of current node.
+        self.robot.planet.set_available_node_directions(
+            (self.corrected_record.endX, self.corrected_record.endY),
+            {
+                direction
+                for direction, available in zip(Direction, self.nodes)
+                if available
+            },
+        )
+        self.selected_direction = self.robot.planet.next_direction(
+            (self.corrected_record.endX, self.corrected_record.endY),
+            self.robot.target,
+        )
+        # Publish selected path.
+        self.robot.communication.send_message_type(
+            ClientMessageType.PATH_SELECT,
+            StartRecord(
+                startX=self.corrected_record.endX,
+                startY=self.corrected_record.endY,
+                startDirection=self.selected_direction,
+            )
+        )
+
+    def check_if_finished(self) -> None:
+        """Check if exploration is completed or our target reached."""
+        if ((self.corrected_record.endX, self.corrected_record.endY)
+                == self.robot.target):
+            # Target reached, publishing that.
+            self.robot.communication.send_message_type(
+                ClientMessageType.TARGET_REACHED,
+                MessageRecord(message="I have reached my destination!"),
+            )
+        elif self.selected_direction is None:
+            # Exploration completed, publish accordingly.
+            self.robot.communication.send_message_type(
+                ClientMessageType.EXPLORATION_COMPLETED,
+                MessageRecord(message="Planet fully discovered!"),
+            )
