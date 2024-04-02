@@ -1,11 +1,26 @@
+from typing import Any, Callable, Union
 from ev3dev import ev3
 import math
+from functools import wraps
+from logging import Logger
+from queue import SimpleQueue, Empty
 import time
+
+from paho.mqtt.client import Client
+
+from communication import (
+    ClientMessageType, Communication, DirectionRecord, MessageRecord,
+    PlanetRecord, ServerMessageType, TargetRecord, WeightedPathRecord,
+)
 
 
 # class to switch between States
 class Robot:
-    def __init__(self):
+    def __init__(self, client: Client, logger: Logger):
+        self.client = client
+        self.logger = logger
+        # Communication is initialized at first node.
+        self.communication = None
         # for switching states
         # attribute where current states gets saved
         self.state = None
@@ -344,6 +359,25 @@ class Node(State):
     def __init__(self, robot):
         State.__init__(self)
         self.robot = robot
+        # Using a synchronized queue to process server messages.
+        self.message_queue: SimpleQueue[
+            tuple[
+                # The message handler.
+                Callable[
+                    [
+                        Union[
+                            PlanetRecord, WeightedPathRecord, DirectionRecord,
+                            TargetRecord, MessageRecord, Any,
+                        ]
+                    ],
+                    Any,
+                ],
+                # The positional arguments to be passed to it.
+                tuple,
+                # The keyword arguments to be passed to it.
+                dict,
+            ]
+        ] = SimpleQueue()
         # for node scanning
         self.lines = []
         # always the compass where the last scanned node hast lines 0 - no, 1 - yes, north, east, south, west
@@ -368,6 +402,7 @@ class Node(State):
         self.round_odo()
         # move Robo to node mid
         self.move_to_position(350, 350, 240, 240)
+        self.open_communication()
         # just for testing
         # interval = self.i_length
         # k_i = self.k_i
@@ -389,6 +424,9 @@ class Node(State):
         # clear motor position array for odo
         self.robot.odo_motor_positions.clear()
         # print(f'{len(self.robot.odo_motor_positions)=}')
+
+        # Stop reacting to any server message.
+        self.close_communication()
 
         # back to line following
         next_state = Follower(self.robot)
@@ -567,3 +605,84 @@ class Node(State):
         # giving them time to execute
         while self.robot.m_right.is_running and self.robot.m_left.is_running:
             time.sleep(0.1)
+
+    def open_communication(self) -> None:
+        """Set up message handlers, send and set communication timeout.
+
+        At the first node, set up communication and submit
+        `ClientMessageType.READY` message, at all other nodes send
+        `ClientMessageType.PATH` message including current estimated
+        node information.
+        """
+        # A function to ensure each new message is enqueued with the
+        # appropriate handler for synchronous processing.
+        def handler_enqueuer(handler):
+            def enqueue(*args, **kwargs):
+                # Enqueue the handler with its desired arguments for
+                # later synchronous execution.
+                self.message_queue.put((handler, args, kwargs))
+            return enqueue
+
+        # Create a message handler registry, where each handler is
+        # decorated with `handler_enqueuer` in order to enqueue the
+        # handler including its arguments on each message.
+        message_handlers = {
+            msg_type: handler_enqueuer(handler)
+            for msg_type, handler in {
+                ServerMessageType.PLANET: self._handle_planet_message,
+                ServerMessageType.PATH: self._handle_path_message,
+                ServerMessageType.PATH_SELECT: self._handle_path_select_message,
+                ServerMessageType.PATH_UNVEILED: self._handle_path_unveiled_message,
+                ServerMessageType.DONE: self._handle_done_message,
+                ServerMessageType.TARGET: self._handle_target_message,
+            }.items()
+        }
+
+        if self.robot.communication is None:
+            # First supply station.
+            # Communication initialization.
+            self.robot.communication = Communication(
+                self.robot.client,
+                self.robot.logger,
+            )
+            self.robot.communication.message_handlers = message_handlers
+            self.robot.communication.send_message_type(ClientMessageType.READY)
+        else:
+            self.robot.communication.message_handlers = message_handlers
+            # TODO: Publish path message.
+
+    def handle_messages(self, timeout: float = 0) -> None:
+        """Wait at most `timeout` seconds for new messages and handle them."""
+        try:
+            while True:
+                handler, args, kwargs = self.message_queue.get(
+                    block=True,
+                    timeout=timeout,
+                )
+                handler(*args, **kwargs)
+        except Empty:
+            # `timeout` reached and no message arrived, finished.
+            return
+
+    def close_communication(self) -> None:
+        """Stop handling messages."""
+        self.robot.communication.message_handlers = {}
+
+    def _handle_planet_message(self, planet_record: PlanetRecord) -> None:
+        # TODO: Set start coordinates and direction.
+        pass
+
+    def _handle_path_message(self, weighted_path_record: WeightedPathRecord) -> None:
+        pass
+
+    def _handle_path_select_message(self, direction_record: DirectionRecord) -> None:
+        pass
+
+    def _handle_path_unveiled_message(self, weighted_path_record: WeightedPathRecord) -> None:
+        pass
+
+    def _handle_target_message(self, target_record: TargetRecord) -> None:
+        pass
+
+    def _handle_done_message(self, message_record: MessageRecord) -> None:
+        pass

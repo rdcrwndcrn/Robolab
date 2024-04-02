@@ -49,7 +49,7 @@ def run():
     # ==================================================================
 
     # create robot instance
-    robot = Robot()
+    robot = Robot(client, logger)
     # set start state in rob instance to color calibration state, which needs to be an instance of Robo
     robot.set_start_state(ColourCalibration(robot))
     # start by running runAll from robo class
