@@ -50,18 +50,18 @@ class Robot:
 
         # just for testing
         # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-        self.t_p = 250
+        self.t_p = 220
         # declaring proportional gain
-        self.k_p = 6 * 10 ** -1
+        self.k_p = 5 * 10 ** -1
         # integral gain
-        self.k_i = 3 * 10 ** 0
+        self.k_i = 4.5 * 10 ** 0
         # second I controller for going slower in slopes 30
-        self.ki = 13
+        self.ki = 12
         # derivative gain
-        self.k_d = 2 * 10 ** -1
+        self.k_d = 3 * 10 ** -1
         # 40,92 ms per loop -> 1s has ~24,5 iterations
         # 60 iterations ~ 2,5 s
-        self.i_length = 60
+        self.i_length = 90
 
         # Odometrie
         # list for motor positions
@@ -197,7 +197,7 @@ class Follower(State):
         # for summing up the error, hence integral
         self.all_err = []
         # constant to shrink error in interval
-        self.k_err = 0.004
+        self.k_err = 0.003
         # for calc the derivative
         self.last_err = 0
         # counter for iterations in while
@@ -390,7 +390,7 @@ def mat_rotate(angle, x, y):
             ]
         )
     )[0]
-    return angle, x, y
+    return x, y
 
 
 # calculates Odometry, communicates with mothership, scans Node, calls dijkstra, resets many variables
@@ -432,7 +432,7 @@ class Node(State):
         self.south = []
         self.west = []
         # true incoming direction
-        self.compass = 0
+        alpha = 0
         # needed for saving scanned lines after node scan in global directions
         self.alpha = 0
         # just for testing
@@ -520,7 +520,7 @@ class Node(State):
         # calc and get odo values
         # if path blocked -> returned to starting position
         if self.robot.path_blocked:
-            x, y, self.compass = (self.robot.start_record.startX, self.robot.start_record.startY,
+            x, y, alpha = (self.robot.start_record.startX, self.robot.start_record.startY,
                                   self.robot.start_record.startDirection)
         else:
             x, y, alpha = self.odometry()
@@ -529,6 +529,7 @@ class Node(State):
             x = x / 360 * 5.6 * math.pi
             y = y / 360 * 5.6 * math.pi
             print(f'before correction {x=}, {y=}, {alpha=}')
+            x, y = mat_rotate(-self.robot.start_record.startDirection, x, y)
             # drove orthogonal that means one coordinate is zero, probably the one nearer to zero
             if (self.robot.last_node_colour == 'blue' and self.robot.current_node_colour == 'red' or
                     self.robot.last_node_colour == 'red' and self.robot.current_node_colour == 'blue'):
@@ -544,14 +545,13 @@ class Node(State):
             # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is
             # looking after he found the next node, but we need the incoming direction global compass thingy angle
             # 0 for north, 90 for east, 180 for south 270 for west
-            # self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
-            print(f'absolute Odo: {x=} {y=} {self.compass=}')
-            self.compass, x, y = mat_rotate(self.robot.start_record.startDirection, x, y)
+            alpha = opposite(self.robot.start_record.startDirection + alpha)  # cyclic group
+            print(f'absolute Odo: {x=} {y=} {alpha=}')
             # global Odo
             x += self.robot.start_record.startX
             y += self.robot.start_record.startY
-            print(f'gloabl Odo: {x=} {y=} {self.compass}')
-        return x, y, self.compass
+            print(f'gloabl Odo: {x=} {y=} {alpha}')
+        return x, y, alpha
 
     # move to position
     def move_to_position(self, v_l, v_r, s_l, s_r):
@@ -694,7 +694,6 @@ class Node(State):
                 # Enqueue the handler with its desired arguments for
                 # later synchronous execution.
                 self.message_queue.put((handler, args, kwargs))
-
             return enqueue
 
         # Create a message handler registry, where each handler is
