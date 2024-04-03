@@ -120,14 +120,12 @@ class ColourCalibration(State):
         self.robot = robot
         self.btn = ev3.Button()
         self.screen = ev3.Screen()
+        self.ts = ev3.TouchSensor()
 
     def run(self):
         # running Colour calibration methods
-        # hardcoded for faster testing, will be deleted for exam
-        self.robot.colors['black'] = [46.38, 45.25, 11.16]
-        self.robot.colors['white'] = [280.72, 273.67, 95.07]
         # measuring colour and saving them in dict
-        # self.measure_colours()
+        self.measure_colours()
         # calc offset for PID
         self.calc_off()
         # for Odo
@@ -139,26 +137,18 @@ class ColourCalibration(State):
         # calling the switch method of robot class which needs new state as an instance
         self.robot.switch_state(next_state)
 
-    # colour calibration with robo buttons and display, for calc offset - TODO not really working, values inputs
+    # colour calibration with robo buttons and display, for calc offset
     #  there, but display does not show anything
     def measure_colours(self):
+        # robot is ready for calibration
         for x in self.robot.calibrated_colors:
-
-            # to wait for a button input
-            input(f'Press enter to read {x}')
-
-            '''
-            while True:
-                # so we cant forget which colour we start with
-                self.screen.draw.text((0, 0), f'Press any button to read {x}')
-                self.screen.update()
-                if self.btn.any():
-                    # so it won't detect one input as two and measure black and white at the same spot
-                    time.sleep(1)
-                    break
-                    '''
+            ev3.Sound.speak(f'Put me on {x}')
+            while not self.ts.value():
+                time.sleep(0.1)
+            ev3.Sound.beep()
             # getting and saving rgb-values
             self.robot.colors[x] = self.calibration()
+        ev3.Sound.speak('This is the way')
 
     # eliminate short period deviation in colour sensor
     # to help with measuring the colors in the colors dict
