@@ -50,15 +50,15 @@ class Robot:
 
         # just for testing
         # initialising t_p, well use it with the meaning of x per mile of the possible wheel speed
-        self.t_p = 220
+        self.t_p = 250
         # declaring proportional gain
-        self.k_p = 5 * 10 ** -1
+        self.k_p = 6 * 10 ** -1
         # integral gain
-        self.k_i = 1 * 10 ** 0
+        self.k_i = 3 * 10 ** 0
         # second I controller for going slower in slopes 30
-        self.ki = 12
+        self.ki = 13
         # derivative gain
-        self.k_d = 3 * 10 ** -1
+        self.k_d = 2 * 10 ** -1
         # 40,92 ms per loop -> 1s has ~24,5 iterations
         # 60 iterations ~ 2,5 s
         self.i_length = 60
@@ -143,6 +143,7 @@ class ColourCalibration(State):
     #  there, but display does not show anything
     def measure_colours(self):
         for x in self.robot.calibrated_colors:
+
             # to wait for a button input
             input(f'Press enter to read {x}')
 
@@ -578,8 +579,8 @@ class Node(State):
         self.robot.m_left.position_sp = -1 / 2 * ticks
         self.robot.m_right.position_sp = 1 / 2 * ticks
         # ticks per second, up to 1050
-        self.robot.m_left.speed_sp = 150
-        self.robot.m_right.speed_sp = 150
+        self.robot.m_left.speed_sp = 220
+        self.robot.m_right.speed_sp = 220
         # executing commands
         self.robot.m_left.command = "run-to-rel-pos"
         self.robot.m_right.command = "run-to-rel-pos"
