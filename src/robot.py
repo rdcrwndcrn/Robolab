@@ -203,7 +203,6 @@ class Follower(State):
     def run(self):
         # line following loop
         self.robot.path_blocked = False
-        # input("to start Follower press enter")
         self.robot.motor_prep()
         try:
             while True:
@@ -213,10 +212,9 @@ class Follower(State):
                 self.check_for_node(r, g, b)
                 # turn if bottle is less than 150 mm before Rob
                 if self.robot.us.value() < 150:
-                    ev3.Sound().play('R2-D2 gets killed sound.wav')
                     self.robot.path_blocked = True
                     self.bottle_turn()
-                    self.robot.m_right.command = "run-forever"
+
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.robot.convert_to_grey(r, g, b)
                 # calculating error
@@ -308,6 +306,8 @@ class Follower(State):
         self.robot.m_left.command = self.robot.m_right.command = "run-to-rel-pos"
         # print(m_left.state.__repr__())
         # giving them time to execute
+        ev3.Sound().play('R2-D2 gets killed sound.wav')  # TODO does not work yet
+        # time.sleep(3)
         while self.robot.m_right.is_running and self.robot.m_left.is_running:
             time.sleep(0.1)
         # now turn until found line and continue
@@ -456,7 +456,6 @@ class Node(State):
             startY=self.corrected_record.endY,
             startDirection=self.selected_direction,
         )
-        ev3.Sound().play('Roger Roger Star Wars Droid - Sound Effect.wav')
         # turn to the chosen line to continue
         self.choose_line()
         # print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
@@ -636,7 +635,7 @@ class Node(State):
         # getting the first motor position of the lane - that's the one on the left side
         if line == 0:
             # print('you chose north')
-            # for Odometry so we can calculate the end cardinal direction
+            # for Odometry, so we can calculate the end cardinal direction
             position = self.north[0]
         elif line == 90:
             position = self.east[0]
@@ -746,6 +745,7 @@ class Node(State):
         """Stop handling messages."""
         self.robot.communication.message_handlers = {}
         # TODO: Signal end of communication in some way.
+        ev3.Sound.tone([(200, 100, 100), (500, 200)])
 
     def _handle_planet_message(self, planet_record: PlanetRecord) -> None:
         self.corrected_record = EndRecord(
@@ -802,6 +802,8 @@ class Node(State):
 
     def _handle_done_message(self, message_record: MessageRecord) -> None:
         self.close_communication()
+        ev3.Sound().play('R2-D2 gets killed sound.wav')  # TODO does it work?
+        time.sleep(5)
         exit()
 
     def select_path(self) -> None:
