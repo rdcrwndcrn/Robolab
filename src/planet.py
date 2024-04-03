@@ -3,7 +3,6 @@
 # ATTENTION: Do not import the ev3dev.ev3 module in this file.
 from enum import IntEnum, unique
 from math import inf
-from pprint import pprint
 from random import choice
 from typing import Final, Optional
 
@@ -187,8 +186,6 @@ class Planet:
                 # `target` not yet reachable, continue exploring normally.
                 shortest_path = self._shortest_path(start)
 
-            print(f"in next_direction({start = }, {target = }): {shortest_path = }")
-
             # Recheck in case `shortest_path` got updated.
             if shortest_path is None:
                 # No direction found, exploration completed.
@@ -288,9 +285,6 @@ class Planet:
         else:
             # No target found (`while` loop not aborted).
             return None
-
-        print(f"in _shortest_path({start = }, {target = }) {shortest_paths = } {nodes_to_check = }")
-        pprint(self._paths)
 
         # Reconstruct shortest path.
         shortest_path: list[tuple[tuple[int, int], Direction]] = []

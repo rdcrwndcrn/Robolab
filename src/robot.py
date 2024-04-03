@@ -123,7 +123,6 @@ class ColourCalibration(State):
 
     def run(self):
         # running Colour calibration methods
-        print("starting ColourCalibration")
         # hardcoded for faster testing, will be deleted for exam
         self.robot.colors['black'] = [46.38, 45.25, 11.16]
         self.robot.colors['white'] = [280.72, 273.67, 95.07]
@@ -159,11 +158,6 @@ class ColourCalibration(State):
                     '''
             # getting and saving rgb-values
             self.robot.colors[x] = self.calibration()
-            print(self.robot.colors[x])
-
-        # telling us that everything worked
-        self.screen.draw.text((0, 0), f'Im ready. Put me on!')
-        self.screen.update()
 
     # eliminate short period deviation in colour sensor
     # to help with measuring the colors in the colors dict
@@ -256,9 +250,9 @@ class Follower(State):
                     self.i = 0
                     self.c = 0
                     # just for testing
-                    print(f' {new_speed_right=} {new_speed_left=}')
-                    print(
-                        f'{turns=} {self.robot.k_p*err=} {self.robot.k_i*integral=} {integral=} {self.robot.ki*integral=}')
+                    # print(f' {new_speed_right=} {new_speed_left=}')
+                    # print(
+                    #     f'{turns=} {self.robot.k_p*err=} {self.robot.k_i*integral=} {integral=} {self.robot.ki*integral=}')
                 self.i += 1
                 # logging motor position for odo
                 self.robot.odo_motor_positions.append((self.robot.m_left.position, self.robot.m_right.position))
@@ -440,7 +434,7 @@ class Node(State):
         self.angles = []
 
     def run(self):
-        print("starting node state")
+        # print("starting node state")
         # node methods:
         # odometry
         x, y, direction = self.round_odo()
@@ -595,7 +589,7 @@ class Node(State):
             # should continue if he found the line again
             found_line = self.robot.convert_to_grey(r, g, b)
             if found_line < self.robot.offset:
-                print(f'{self.robot.m_right.position}')
+                # print(f'{self.robot.m_right.position}')
                 self.lines.append(self.robot.m_right.position)
 
     # function to turn the motor.position into a compass
@@ -645,15 +639,15 @@ class Node(State):
                     self.nodes[3], self.nodes[2], self.nodes[1],
                     self.nodes[0])
 
-        print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
-        print(f'{self.nodes=}')  # TODO add connection to planet
+        # print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
+        # print(f'{self.nodes=}')  # TODO add connection to planet
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
         line = self.selected_direction
         # getting the first motor position of the lane - that's the one on the left side
         if line == 0:
-            print('you chose north')
+            # print('you chose north')
             # for Odometry so we can calculate the end cardinal direction
             position = self.north[0]
         elif line == 90:
