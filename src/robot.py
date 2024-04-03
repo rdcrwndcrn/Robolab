@@ -713,7 +713,7 @@ class Node(State):
                     **asdict(self.robot.start_record),
                     endX=int(x),
                     endY=int(y),
-                    endDirection=direction,
+                    endDirection=int(direction),
                     pathStatus=(
                         PathStatus.BLOCKED
                         if self.robot.path_blocked
@@ -821,13 +821,17 @@ class Node(State):
             (self.corrected_record.endX, self.corrected_record.endY),
             self.robot.target,
         )
+        if self.select_path is None:
+            # No path selected, probably finished.
+            return
+
         # Publish selected path.
         self.robot.communication.send_message_type(
             ClientMessageType.PATH_SELECT,
             StartRecord(
-                startX=self.corrected_record.endX,
-                startY=self.corrected_record.endY,
-                startDirection=self.selected_direction,
+                startX=int(self.corrected_record.endX),
+                startY=int(self.corrected_record.endY),
+                startDirection=int(self.selected_direction),
             )
         )
 
