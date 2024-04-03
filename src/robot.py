@@ -181,7 +181,7 @@ class Follower(State):
         # declaring proportional gain
         self.k_p = 5 * 10 ** -1
         # integral gain
-        self.k_i = 4.5 * 10 ** 0
+        self.k_i = 4.5
         # second I controller for going slower in slopes 30
         self.ki = 12
         # derivative gain
@@ -216,6 +216,7 @@ class Follower(State):
                     ev3.Sound().play('R2-D2 gets killed sound.wav')
                     self.robot.path_blocked = True
                     self.bottle_turn()
+                    self.robot.m_right.command = "run-forever"
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.robot.convert_to_grey(r, g, b)
                 # calculating error
@@ -316,13 +317,14 @@ class Follower(State):
         self.robot.m_left.position_sp = (1 / 2 * degree * ticks) / 360
         self.robot.m_right.position_sp = -(1 / 2 * degree * ticks) / 360
         self.robot.m_left.speed_sp = self.robot.m_right.speed_sp = 100
+        # executing commands
+        self.robot.m_left.command = self.robot.m_right.command = "run-to-rel-pos"
         # turn until found black
         while found_line > self.robot.offset:
             r, g, b, _ = self.robot.cs.bin_data("hhhh")
             found_line = self.robot.convert_to_grey(r, g, b)
             time.sleep(0.01)
         # stop it
-        self.robot.motor_prep()
 
     # function for calculating the integral
     def calc_int(self, error):
@@ -354,7 +356,7 @@ class Follower(State):
 # matrix multiplication without numpy
 def mat_rotate(angle, x, y):
     # rotation matrix
-    angle = opposite(angle)
+    angle = -angle
     rot = [[math.cos(angle), -math.sin(angle)],
            [math.sin(angle), math.cos(angle)]]
 
@@ -469,9 +471,9 @@ class Node(State):
         self.robot.switch_state(next_state)
 
     def odometry(self):
-        x = self.robot.start_record.startX * 50
-        y = self.robot.start_record.startY * 50
-        global_direction_change = self.robot.start_record.startDirection * math.pi / 180
+        x = 0
+        y = 0
+        global_direction_change = 0
         for i, (left, right) in enumerate(self.robot.odo_motor_positions[1:]):
             d_l = left - self.robot.odo_motor_positions[i - 1][0]
             d_r = right - self.robot.odo_motor_positions[i - 1][1]
@@ -481,14 +483,21 @@ class Node(State):
             else:
                 alpha = (d_r - d_l) / self.robot.a
                 s = (d_r + d_l) / alpha * math.sin(alpha / 2)
-            x += (s * math.sin(global_direction_change + alpha / 2)) / 360 * 5.6 * math.pi
-            y += (s * math.cos(global_direction_change + alpha / 2)) / 360 * 5.6 * math.pi
+            x += s * math.sin(global_direction_change + alpha / 2)
+            y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
-        x = round(x / 50)
-        y = round(y / 50)
+        print(f'{x=} {y=} {global_direction_change=}')
+        x = round(x * math.pi * 5.6 / 360 / 50)
+        y = round(y * math.pi * 5.6 / 360 / 50)
+        x = -x
         global_direction_change = global_direction_change * 180 / math.pi
-        global_direction_change = round(global_direction_change / 90) * 90
+        global_direction_change = round(-global_direction_change / 90) * 90
         global_direction_change = opposite(self.robot.start_record.startDirection + global_direction_change)
+        print(f'after rounding {x=} {y=} {global_direction_change=}')
+        x, y = mat_rotate(self.robot.start_record.startDirection, x, y)
+        x += self.robot.start_record.startX
+        y += self.robot.start_record.startY
+        print(f'what we are sending {x=} {y=} {global_direction_change=}')
         return x, y, global_direction_change
 
     # to round x and y from odometry and using red blue node rule for higher accuracy
@@ -619,7 +628,7 @@ class Node(State):
                     self.nodes[0])
 
         print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
-        print(f'{self.nodes=}')  # TODO add connection to planet
+        print(f'{self.nodes=}')
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
@@ -645,8 +654,8 @@ class Node(State):
         self.robot.m_left.position_sp = -motor_position
         self.robot.m_right.position_sp = motor_position
         # ticks per second, up to 1050
-        self.robot.m_left.speed_sp = 300
-        self.robot.m_right.speed_sp = 300
+        self.robot.m_left.speed_sp = 400
+        self.robot.m_right.speed_sp = 400
         # executing commands
         self.robot.m_left.command = "run-to-rel-pos"
         self.robot.m_right.command = "run-to-rel-pos"
@@ -703,8 +712,8 @@ class Node(State):
                 ClientMessageType.PATH,
                 PathRecord(
                     **asdict(self.robot.start_record),
-                    endX=x,
-                    endY=y,
+                    endX=int(x),
+                    endY=int(y),
                     endDirection=direction,
                     pathStatus=(
                         PathStatus.BLOCKED
