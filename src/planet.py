@@ -182,9 +182,14 @@ class Planet:
         else:
             shortest_path = self._shortest_path(start, target)
 
-            if shortest_path is None and target is not None:
-                # `target` not yet reachable, continue exploring normally.
-                shortest_path = self._shortest_path(start)
+            if target is not None:
+                if shortest_path is None:
+                    # `target` not yet reachable, continue exploring normally.
+                    shortest_path = self._shortest_path(start)
+                elif not shortest_path:
+                    # `shortest_path` is `[]` meaning we have already
+                    # reached our `target`.
+                    return None
 
             # Recheck in case `shortest_path` got updated.
             if shortest_path is None:
