@@ -164,7 +164,8 @@ class Planet:
         to head to it as fast as possible, else, the direction to the
         next unexplored path or the next unexplored direction is
         returned. If none of the above are found, `None` is returned,
-        signalling the completion of exploration.
+        signalling the completion of exploration (or that the target
+        has been reached).
 
         Both `start` and `target` (if not `None`) are assumed to be
         valid coordinates, else a `KeyError` will be raised.
