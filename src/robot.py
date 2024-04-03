@@ -469,7 +469,7 @@ class Node(State):
             startY=self.corrected_record.endY,
             startDirection=self.selected_direction,
         )
-        ev3.Sound().play('R2-D2 gets killed sound.wav')
+        ev3.Sound().play('Roger Roger Star Wars Droid - Sound Effect.wav')
         # turn to the chosen line to continue
         self.choose_line()
         # print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
@@ -513,8 +513,6 @@ class Node(State):
                                   self.robot.start_record.startDirection)
         else:
             x, y, alpha = self.odometry()
-            x /= 1.5
-            y *= 1.5
             # converting scale to cm and degree
             alpha = alpha * 180 / math.pi
             x = x / 360 * 5.6 * math.pi
@@ -633,8 +631,8 @@ class Node(State):
                     self.nodes[3], self.nodes[2], self.nodes[1],
                     self.nodes[0])
 
-        # print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
-        # print(f'{self.nodes=}')  # TODO add connection to planet
+        print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
+        print(f'{self.nodes=}')  # TODO add connection to planet
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):
