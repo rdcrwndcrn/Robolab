@@ -679,7 +679,7 @@ class Node(State):
             time.sleep(0.1)
 
     def open_communication(self, x: int, y: int, direction: Direction) -> None:
-        """Set up message handlers, send and set communication timeout.
+        """Set up message handlers and send required information.
 
         At the first node, set up communication and submit
         `ClientMessageType.READY` message, at all other nodes send
@@ -780,8 +780,8 @@ class Node(State):
         self.robot.planet.add_path(origin, origin, BLOCKED)
 
     def _handle_path_message(
-            self,
-            weighted_path_record: WeightedPathRecord,
+        self,
+        weighted_path_record: WeightedPathRecord,
     ) -> None:
         self.corrected_record = EndRecord(
             endX=weighted_path_record.endX,
@@ -791,14 +791,14 @@ class Node(State):
         self._handle_path_unveiled_message(weighted_path_record)
 
     def _handle_path_select_message(
-            self,
-            direction_record: DirectionRecord,
+        self,
+        direction_record: DirectionRecord,
     ) -> None:
         self.selected_direction = direction_record.startDirection
 
     def _handle_path_unveiled_message(
-            self,
-            weighted_path_record: WeightedPathRecord,
+        self,
+        weighted_path_record: WeightedPathRecord,
     ) -> None:
         self.robot.planet.add_path(
             (
