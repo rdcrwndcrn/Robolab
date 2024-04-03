@@ -512,6 +512,8 @@ class Node(State):
                                   self.robot.start_record.startDirection)
         else:
             x, y, alpha = self.odometry()
+            x /= 1.5
+            y *= 1.5
             # converting scale to cm and degree
             alpha = alpha * 180 / math.pi
             x = x / 360 * 5.6 * math.pi
