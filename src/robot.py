@@ -377,8 +377,19 @@ def mat_rotate(angle, x, y):
     # coordinate matrix
     coo = [[x],
            [y]]
-
-    result = [[sum(a * b for a, b in zip(rot_row, coo_col)) for coo_col in zip(*coo)] for rot_row in rot]
+    # Matrix multiplication.
+    x, y = list(
+        zip(
+            *[
+                [
+                    sum(a * b
+                        for a, b in zip(rot_row, coo_col))
+                    for coo_col in zip(*coo)
+                ]
+                for rot_row in rot
+            ]
+        )
+    )[0]
     return angle, x, y
 
 
