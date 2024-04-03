@@ -169,10 +169,7 @@ class Planet:
         Both `start` and `target` (if not `None`) are assumed to be
         valid coordinates, else a `KeyError` will be raised.
         """
-        print(f"next_direction({start = }, {target = })")
-        print(f"{self._known_node_directions = }")
         def random_direction():
-            print(f"random_direction options: {[direction for direction in self._known_node_directions[start] if direction not in self._paths[start]]}")
             return choice([
                 direction
                 for direction in self._known_node_directions[start]
@@ -238,9 +235,10 @@ class Planet:
         nodes_to_check: dict[
             tuple[int, int],
             tuple[Weight, Optional[tuple[int, int]], Optional[Direction]]
-        ] = {}
-        # Start with the start node, coming from no other node.
-        nodes_to_check[start] = (0, None, None)
+        ] = {
+            # Start with the start node, coming from no other node.
+            start: (0, None, None),
+        }
 
         while nodes_to_check:   # while `nodes_to_check` is not empty
             # Find node with minimum weight.
