@@ -140,6 +140,8 @@ class ColourCalibration(State):
     # colour calibration with robo buttons and display, for calc offset
     #  there, but display does not show anything
     def measure_colours(self):
+        # so we cant miss it
+        ev3.Sound.beep()
         # robot is ready for calibration
         for x in self.robot.calibrated_colors:
             ev3.Sound.speak(f'Put me on {x}')
@@ -148,7 +150,9 @@ class ColourCalibration(State):
             ev3.Sound.beep()
             # getting and saving rgb-values
             self.robot.colors[x] = self.calibration()
+            ev3.Sound.beep()
         ev3.Sound.speak('This is the way')
+        time.sleep(4)
 
     # eliminate short period deviation in colour sensor
     # to help with measuring the colors in the colors dict
@@ -363,20 +367,19 @@ class Follower(State):
         self.robot.m_right.command = "run-forever"
 
 
-# just for testing
-def histogram(values, count_bin=10):
-    min_value = min(values)
-    max_value = max(values)
-    bin_width = (max_value - min_value) / count_bin
-    bin_width = [min_value + i * bin_width for i in range(count_bin + 1)]
-    bins = [0] * count_bin
-    for value in values:
-        bin_index = int((value - min_value) / bin_width)
-        if bin_index == count_bin:
-            bin_index -= 1
-        bins[bin_index] += 1
-    for b, count in zip(bin_width, bins):
-        print(b, count)
+# matrix multiplication without numpy
+def mat_rotate(angle, x, y):
+    # rotation matrix
+    angle = opposite(angle)
+    rot = [[math.cos(angle), -math.sin(angle)],
+           [math.sin(angle), math.cos(angle)]]
+
+    # coordinate matrix
+    coo = [[x],
+           [y]]
+
+    result = [[sum(a * b for a, b in zip(rot_row, coo_col)) for coo_col in zip(*coo)] for rot_row in rot]
+    return angle, x, y
 
 
 # calculates Odometry, communicates with mothership, scans Node, calls dijkstra, resets many variables
@@ -431,7 +434,8 @@ class Node(State):
         x, y, direction = self.round_odo()
         # move Robo to node mid
         self.move_to_position(300, 300, 145, 145)
-        self.open_communication(x, y, direction)
+        self.open_communication(x, y, direction)#
+        print(self.corrected_record)
         self.alpha = self.corrected_record.endDirection
         # just for testing
         # interval = self.i_length
@@ -497,8 +501,6 @@ class Node(State):
             x += s * math.sin(global_direction_change + alpha / 2)
             y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
-        # just for debugging
-        # histogram(angles)
         return x, y, global_direction_change
 
     # to round x and y from odometry and using red blue node rule for higher accuracy
@@ -522,23 +524,21 @@ class Node(State):
                     y = 0
                 else:
                     x = 0
-            x = round(-x / 50) + self.robot.start_record.startX
-            y = round(y / 50) + self.robot.start_record.startY
+            # relative Odo
+            x = round(-x / 50)
+            y = round(y / 50)
             alpha = round(-alpha / 90) * 90
-            if self.robot.start_record.startDirection == 90:
-                # east
-                y, x = -x, y
-            elif self.robot.start_record.startDirection == 180:
-                # south
-                y, x = -y, -x
-            elif self.robot.start_record.startDirection == 270:
-                # west
-                y, x = x, -y
-            # 0 for north, 90 for east, 180 for south 270 for west
+            print(f'relative Odo: {x=} {y=} {alpha=}')
             # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is
             # looking after he found the next node, but we need the incoming direction global compass thingy angle
-            self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
-            print(f'{x=} {y=} {self.compass=} {self.alpha=}')
+            # 0 for north, 90 for east, 180 for south 270 for west
+            # self.compass = (self.robot.start_record.startDirection + alpha + 180) % 360  # cyclic group
+            print(f'absolute Odo: {x=} {y=} {self.compass=}')
+            self.compass, x, y = mat_rotate(self.robot.start_record.startDirection, x, y)
+            # global Odo
+            x += self.robot.start_record.startX
+            y += self.robot.start_record.startY
+            print(f'gloabl Odo: {x=} {y=} {self.compass}')
         return x, y, self.compass
 
     # move to position
