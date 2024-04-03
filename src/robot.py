@@ -218,7 +218,7 @@ class Follower(State):
                 self.check_for_node(r, g, b)
                 # turn if bottle is less than 150 mm before Rob
                 if self.robot.us.value() < 150:
-                    # TODO: Signal obstacle in some way.
+                    ev3.Sound().play('R2-D2 gets killed sound.wav')
                     self.robot.path_blocked = True
                     self.turn(175)
                 # converting to greyscale / 2.55 to norm it from 0 to 100
@@ -400,9 +400,9 @@ class Node(State):
                     ],
                     Any,
                 ],
-                    # The positional arguments to be passed to it.
+                # The positional arguments to be passed to it.
                 tuple,
-                    # The keyword arguments to be passed to it.
+                # The keyword arguments to be passed to it.
                 dict,
             ]
         ] = SimpleQueue()
@@ -434,7 +434,7 @@ class Node(State):
         x, y, direction = self.round_odo()
         # move Robo to node mid
         self.move_to_position(300, 300, 145, 145)
-        self.open_communication(x, y, direction)#
+        self.open_communication(x, y, direction)  #
         print(self.corrected_record)
         self.alpha = self.corrected_record.endDirection
         # just for testing
@@ -469,6 +469,7 @@ class Node(State):
             startY=self.corrected_record.endY,
             startDirection=self.selected_direction,
         )
+        ev3.Sound().play('R2-D2 gets killed sound.wav')
         # turn to the chosen line to continue
         self.choose_line()
         # print(f'{min(self.robot.odo_motor_positions)=} {max(self.robot.odo_motor_positions)=}')
