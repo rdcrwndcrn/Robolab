@@ -98,7 +98,7 @@
       "polarity_inverted": false
     }
   },
-  "weight_kg": 0.5,
+  "weight_kg": 0.725,
   "#weight_kg_description": "A rough estimate, might be used in the future to improve acceleration simulation. Currently not used.",
   "startup_sequence": [
     "MOVEOVER: RED  #Moves the color-sensor over a red node",
