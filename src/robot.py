@@ -305,9 +305,6 @@ class Follower(State):
         self.robot.m_left.speed_sp = self.robot.m_right.speed_sp = 300
         # executing commands
         self.robot.m_left.command = self.robot.m_right.command = "run-to-rel-pos"
-        # giving them time to execute
-        ev3.Sound().play('R2-D2 gets killed sound.wav')  # TODO does not work yet
-        # time.sleep(3)
         while self.robot.m_right.is_running and self.robot.m_left.is_running:
             time.sleep(0.1)
         # now turn until found line and continue
