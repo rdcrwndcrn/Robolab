@@ -821,7 +821,7 @@ class Node(State):
             (self.corrected_record.endX, self.corrected_record.endY),
             self.robot.target,
         )
-        if self.select_path is None:
+        if self.selected_direction is None:
             # No path selected, probably finished.
             return
 
