@@ -304,7 +304,6 @@ class Follower(State):
         self.robot.m_left.speed_sp = self.robot.m_right.speed_sp = 300
         # executing commands
         self.robot.m_left.command = self.robot.m_right.command = "run-to-rel-pos"
-        # print(m_left.state.__repr__())
         # giving them time to execute
         ev3.Sound().play('R2-D2 gets killed sound.wav')  # TODO does not work yet
         # time.sleep(3)
@@ -493,7 +492,7 @@ class Node(State):
         global_direction_change = round(-global_direction_change / 90) * 90
         global_direction_change = opposite(self.robot.start_record.startDirection + global_direction_change)
         print(f'after rounding {x=} {y=} {global_direction_change=}')
-        x, y = mat_rotate(self.robot.start_record.startDirection, x, y)
+        x, y = mat_rotate(self.robot.start_record.startDirection * math.pi / 180, x, y)
         x += self.robot.start_record.startX
         y += self.robot.start_record.startY
         print(f'what we are sending {x=} {y=} {global_direction_change=}')
