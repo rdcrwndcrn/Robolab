@@ -633,7 +633,6 @@ class Node(State):
         line = self.selected_direction
         # getting the first motor position of the lane - that's the one on the left side
         if line == 0:
-            # print('you chose north')
             # for Odometry, so we can calculate the end cardinal direction
             position = self.north[0]
         elif line == 90:
@@ -643,7 +642,10 @@ class Node(State):
         else:
             position = self.west[0]
         # turn to the path
-        self.mp_turn(position)
+        if (self.robot.m_right.position - position) < position:
+            self.mp_turn(self.robot.m_right.position - position)
+        else:
+            self.mp_turn(position)
 
     # basic turn function with degrees
     def mp_turn(self, motor_position):
