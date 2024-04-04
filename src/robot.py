@@ -515,8 +515,8 @@ class Node(State):
                 map(
                     lambda point: (
                         math.sqrt(
-                            (point[0] - self.robot.start_record.startX)**2
-                            + (point[1] - self.robot.start_record.startY)**2
+                            (point[0] - x)**2
+                            + (point[1] - y)**2
                         ),
                         point,
                     ),
