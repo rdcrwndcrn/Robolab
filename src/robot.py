@@ -425,11 +425,15 @@ class Node(State):
 
     def run(self):
         # node methods:
-        # odometry
-        x, y, direction = self.round_odo()
+        if self.robot.communication is not None:
+            # Perform odometry only when needed (starting from second node).
+            x, y, direction = self.round_odo()
+        else:
+            # Set dummy values for communication.
+            x, y, direction = 0, 0, 0
         # move Robo to node mid
         self.move_to_position(300, 300, 145, 145)
-        self.open_communication(x, y, direction)  #
+        self.open_communication(x, y, direction)
         print(self.corrected_record)
         self.alpha = self.corrected_record.endDirection
         # scan for lines
@@ -485,13 +489,12 @@ class Node(State):
             y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
         print(f'{x=} {y=} {global_direction_change=}')
-        x = round(x * math.pi * 5.6 / 360 / 50)
-        y = round(y * math.pi * 5.6 / 360 / 50)
-        x = -x
+        x = -x * math.pi * 5.6 / 360 / 50
+        y = y * math.pi * 5.6 / 360 / 50
         global_direction_change = global_direction_change * 180 / math.pi
         global_direction_change = round(-global_direction_change / 90) * 90
         global_direction_change = opposite(self.robot.start_record.startDirection + global_direction_change)
-        print(f'after rounding {x=} {y=} {global_direction_change=}')
+        print(f'after angle rounding {x=} {y=} {global_direction_change=}')
         x, y = mat_rotate(self.robot.start_record.startDirection * math.pi / 180, x, y)
         x += self.robot.start_record.startX
         y += self.robot.start_record.startY
@@ -503,37 +506,43 @@ class Node(State):
         # calc and get odo values
         # if path blocked -> returned to starting position
         if self.robot.path_blocked:
-            x, y, alpha = (self.robot.start_record.startX, self.robot.start_record.startY,
+            x, y, alpha = (self.robot.start_record.startX,
+                           self.robot.start_record.startY,
                            self.robot.start_record.startDirection)
         else:
             x, y, alpha = self.odometry()
-            # converting scale to cm and degree
-            # alpha = alpha * 180 / math.pi
-            # x = x / 360 * 5.6 * math.pi
-            # y = y / 360 * 5.6 * math.pi
-            # print(f'before correction {x=}, {y=}, {alpha=}')
-            # x, y = mat_rotate(-self.robot.start_record.startDirection, x, y)
-            # drove orthogonal that means one coordinate is zero, probably the one nearer to zero
-            # if (self.robot.last_node_colour == 'blue' and self.robot.current_node_colour == 'red' or
-            #         self.robot.last_node_colour == 'red' and self.robot.current_node_colour == 'blue'):
-            #     if abs(x) > abs(y):
-            #         y = 0
-            #     else:
-            #        x = 0
-            # relative Odo
-            # x = round(-x / 50)
-            # y = round(y / 50)
-            # alpha = round(-alpha / 90) * 90
-            # print(f'relative Odo: {x=} {y=} {alpha=}')
-            # start angle plus angle we drove plus correction because otherwise we would get the angle where robo is
-            # looking after he found the next node, but we need the incoming direction global compass thingy angle
-            # 0 for north, 90 for east, 180 for south 270 for west
-            # alpha = opposite(self.robot.start_record.startDirection + alpha)  # cyclic group
-            # print(f'absolute Odo: {x=} {y=} {alpha=}')
-            # global Odo
-            # x += self.robot.start_record.startX
-            # y += self.robot.start_record.startY
-            #print(f'gloabl Odo: {x=} {y=} {alpha}')
+            # Better rounding using the node colors.
+            rounding_methods = (math.ceil, math.floor)
+            _, (x, y) = min(
+                map(
+                    lambda point: (
+                        math.sqrt(
+                            (point[0] - self.robot.start_record.startX)**2
+                            + (point[1] - self.robot.start_record.startY)**2
+                        ),
+                        point,
+                    ),
+                    filter(
+                        lambda point: (
+                            (-1)**(
+                                point[0] - self.robot.start_record.startX
+                                + point[1] - self.robot.start_record.startY
+                            ) == int(
+                                (self.robot.current_node_colour
+                                    == self.robot.last_node_colour
+                                    - 0.5)
+                                * 2
+                            )
+                        ),
+                        [
+                            (x_method(x), y_method(y))
+                            for x_method in rounding_methods
+                            for y_method in rounding_methods
+                        ]
+                    )
+                )
+            )
+
         return x, y, alpha
 
     # move to position
