@@ -542,6 +542,7 @@ class Node(State):
                     )
                 )
             )
+            print(f'rounded values using node color: {x = } {y = }')
 
         return x, y, alpha
 
