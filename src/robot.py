@@ -213,7 +213,6 @@ class Follower(State):
                 # turn if bottle is less than 150 mm before Rob
                 if self.robot.us.value() < 150:
                     self.robot.path_blocked = True
-                    ev3.Sound.tone([(2500, 200, 100), (2600, 200, 100), (2400, 200)])
                     self.bottle_turn()
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.robot.convert_to_grey(r, g, b)
@@ -293,6 +292,7 @@ class Follower(State):
             time.sleep(0.1)
 
     def bottle_turn(self):
+        ev3.Sound.tone([(2500, 200, 100), (2600, 200, 100), (2400, 200)])
         degree = 100
         self.robot.motor_prep()
         # opposite wheel directions are twice as fast
@@ -432,7 +432,6 @@ class Node(State):
         # move Robo to node mid
         self.move_to_position(300, 300, 145, 145)
         self.open_communication(x, y, direction)
-        print(self.corrected_record)
         self.alpha = self.corrected_record.endDirection
         # scan for lines
         self.node_scan()
@@ -486,17 +485,14 @@ class Node(State):
             x += s * math.sin(global_direction_change + alpha / 2)
             y += s * math.cos(global_direction_change + alpha / 2)
             global_direction_change += alpha
-        print(f'{x=} {y=} {global_direction_change=}')
         x = -x * math.pi * 5.6 / 360 / 50
         y = y * math.pi * 5.6 / 360 / 50
         global_direction_change = global_direction_change * 180 / math.pi
         global_direction_change = round(-global_direction_change / 90) * 90
         global_direction_change = opposite(self.robot.start_record.startDirection + global_direction_change)
-        print(f'after angle rounding {x=} {y=} {global_direction_change=}')
         x, y = mat_rotate(self.robot.start_record.startDirection * math.pi / 180, x, y)
         x += self.robot.start_record.startX
         y += self.robot.start_record.startY
-        print(f'what we are sending {x=} {y=} {global_direction_change=}')
         return x, y, global_direction_change
 
     # to round x and y from odometry and using red blue node rule for higher accuracy
@@ -540,7 +536,6 @@ class Node(State):
                     )
                 )
             )
-            print(f'rounded values using node color: {x = } {y = }')
 
         return x, y, alpha
 
@@ -632,9 +627,6 @@ class Node(State):
                 self.nodes[0], self.nodes[3], self.nodes[2], self.nodes[1] = (
                     self.nodes[3], self.nodes[2], self.nodes[1],
                     self.nodes[0])
-
-        print(f'{self.north=} {self.east=} {self.south=} {self.west=}')
-        print(f'{self.nodes=}')
 
     # so Rob can choose a line to continue from Node and move in position there
     def choose_line(self):

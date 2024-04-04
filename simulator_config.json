@@ -79,7 +79,7 @@
     "#wheels_description": "Information related to the position of wheels and motors. The simulator NEEDS these values even if you dont use odometry!",
     "wheeldistance_cm": 14.65,
     "#wheeldistance_cm_description": "The distance from wheel to wheel, in cm",
-    "distance_per_tick_cm": 0.02618,
+    "distance_per_tick_cm": 0.04887,
     "#distance_per_tick_cm_description": 0.04887,"The distance one wheel travels forward when the motors turns by 1°, in cm. This also includes gear-trains if present! If your robot moves backwards when turning the motors positively, multiply this by -1",
     "#distance_per_tick_cm_example_3cm_wheeldiameter": 0.02618,
     "#distance_per_tick_cm_example_56mm_wheeldiameter": 0.04887,
