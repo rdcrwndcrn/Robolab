@@ -213,8 +213,8 @@ class Follower(State):
                 # turn if bottle is less than 150 mm before Rob
                 if self.robot.us.value() < 150:
                     self.robot.path_blocked = True
+                    ev3.Sound.tone([(2500, 200, 100), (2600, 200, 100), (2400, 200)])
                     self.bottle_turn()
-
                 # converting to greyscale / 2.55 to norm it from 0 to 100
                 grey = self.robot.convert_to_grey(r, g, b)
                 # calculating error
@@ -267,6 +267,7 @@ class Follower(State):
                 self.robot.motor_prep()
                 self.turn(2)
                 # save colour for odo
+                self.robot.last_node_colour = self.robot.current_node_colour
                 self.robot.current_node_colour = 'blue'
                 # calling the switch method of robot class which needs new state as an instance
                 self.robot.switch_state(next_state)
@@ -528,8 +529,8 @@ class Node(State):
                                 point[0] - self.robot.start_record.startX
                                 + point[1] - self.robot.start_record.startY
                             ) == int(
-                                (self.robot.current_node_colour
-                                    == self.robot.last_node_colour
+                                ((self.robot.current_node_colour
+                                    == self.robot.last_node_colour)
                                     - 0.5)
                                 * 2
                             )
@@ -653,7 +654,7 @@ class Node(State):
             position = self.west[0]
         # turn to the path
         if (self.robot.m_right.position - position) < position:
-            self.mp_turn(self.robot.m_right.position - position)
+            self.mp_turn(-self.robot.m_right.position + position + 30)
         else:
             self.mp_turn(position)
 
@@ -813,8 +814,8 @@ class Node(State):
 
     def _handle_done_message(self, message_record: MessageRecord) -> None:
         self.close_communication()
-        ev3.Sound().play('R2-D2 gets killed sound.wav')  # TODO does it work?
-        time.sleep(5)
+        ev3.Sound.tone([(500, 200, 100), (700, 200, 100), (1000, 200, 100), (1200, 200, 100)])
+        time.sleep(1)
         exit()
 
     def select_path(self) -> None:
